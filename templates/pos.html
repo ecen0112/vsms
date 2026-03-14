@@ -325,33 +325,36 @@
               </div>
             </div>
 
-            <!-- GCASH pane -->
+            <!-- GCASH / e-wallet pane -->
             <div class="pm-pane" id="pmPane-gcash">
               <div class="wallet-tabs">
                 <button class="wt active" id="wt-gcash" onclick="setWallet('gcash',this)">📱 GCash</button>
                 <button class="wt" id="wt-maya" onclick="setWallet('maya',this)">💚 Maya</button>
                 <button class="wt" id="wt-instapay" onclick="setWallet('instapay',this)">🏦 InstaPay</button>
               </div>
-              <div class="qr-box">
-                <div class="qr-brand">
-                  <span class="lbl-gcash" id="walletBrandLbl">GCash</span>
-                  <span style="font-size:.78rem;color:#64748b">Scan to Pay</span>
-                </div>
-                <div class="qr-frame"><canvas id="qrCanvas" width="180" height="180"></canvas></div>
-                <div style="font-size:1.2rem;font-weight:800;color:var(--primary);margin:.4rem 0" id="qrAmtDisplay">₱0.00</div>
-                <div style="font-size:.74rem;color:#94a3b8" id="qrRefDisplay">Ref: —</div>
+
+              <!-- Payment details box -->
+              <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:.75rem;text-align:center">
+                <div style="font-size:.72rem;color:#64748b;margin-bottom:.3rem">Send payment to</div>
+                <div id="walletBrandLbl" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:6px;padding:.2rem .75rem;font-size:.85rem;font-weight:800;margin-bottom:.5rem">GCash</div>
+                <div style="font-size:1.5rem;font-weight:800;color:#0f172a;letter-spacing:.05em">09914603699</div>
+                <div style="font-size:.78rem;color:#64748b;margin-top:.2rem">Account name: <strong>VetSupply Store</strong></div>
+                <div style="font-size:1.3rem;font-weight:800;color:#1e3a5f;margin-top:.6rem" id="qrAmtDisplay">₱0.00</div>
+                <div style="font-size:.72rem;color:#94a3b8;margin-top:.15rem" id="qrRefDisplay">Ref: —</div>
               </div>
-              <div class="qr-instructions">
-                1. Open <strong id="walletAppName">GCash</strong> → Scan QR<br>
-                2. Or send to: <strong style="color:#1d4ed8">09914603699</strong><br>
-                3. Confirm amount and send<br>
-                4. Enter reference number below
+
+              <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:.65rem .85rem;font-size:.78rem;color:#92400e;margin-bottom:.75rem;line-height:1.7">
+                1. Open <strong id="walletAppName">GCash</strong> app → Send Money<br>
+                2. Enter number: <strong>09914603699</strong><br>
+                3. Enter exact amount shown above<br>
+                4. Enter the reference number below after sending
               </div>
-              <div class="mt-2">
+
+              <div>
                 <label class="form-label fw-700 small">Reference / Confirmation No. *</label>
                 <input type="text" id="gwRef" class="form-control"
                   style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
-                  placeholder="12-digit reference number" oninput="validateRef()">
+                  placeholder="Reference number from your app" oninput="validateRef()">
                 <div id="refMsg" class="form-text"></div>
               </div>
             </div>
@@ -854,42 +857,28 @@ function updateChange() {
   }
 }
 
-/* ── GCash QR ─────────────────────────────────────────────── */
+/* ── GCash / e-wallet amount display ─────────────────────── */
 function generateQR(amount) {
-  const canvas = document.getElementById('qrCanvas');
-  const ctx = canvas.getContext('2d');
-  const ref = 'VSMS'+Date.now().toString().slice(-8);
-  document.getElementById('qrRefDisplay').textContent = 'Ref: '+ref;
-  document.getElementById('qrAmtDisplay').textContent = '₱'+amount.toFixed(2);
-  // Draw QR pattern
-  const sz = 180;
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,sz,sz);
-  const cells = 23; const cs = sz/cells;
-  ctx.fillStyle = '#000';
-  [[0,0],[cells-7,0],[0,cells-7]].forEach(([cx,cy]) => {
-    ctx.fillRect(cx*cs,cy*cs,7*cs,7*cs);
-    ctx.fillStyle='#fff'; ctx.fillRect((cx+1)*cs,(cy+1)*cs,5*cs,5*cs);
-    ctx.fillStyle='#000'; ctx.fillRect((cx+2)*cs,(cy+2)*cs,3*cs,3*cs);
-  });
-  const payload = `${curWallet.toUpperCase()}|${GCASH_NUM}|${amount.toFixed(2)}|${ref}`;
-  let h = 0;
-  for(let i=0;i<payload.length;i++) h=(Math.imul(31,h)+payload.charCodeAt(i))|0;
-  const rng=()=>{ h=(Math.imul(1664525,h)+1013904223)|0; return(h>>>0)/4294967296; };
-  for(let r=0;r<cells;r++) for(let c=0;c<cells;c++) {
-    if((r<8&&c<8)||(r<8&&c>cells-9)||(r>cells-9&&c<8)) continue;
-    if(rng()>.48){ ctx.fillStyle='#000'; ctx.fillRect(c*cs,r*cs,cs,cs); }
-  }
+  // No QR canvas — just update the amount and ref display
+  const ref = 'VSMS' + Date.now().toString().slice(-8);
+  const el = document.getElementById('qrRefDisplay');
+  const amtEl = document.getElementById('qrAmtDisplay');
+  if (el) el.textContent = 'Ref: ' + ref;
+  if (amtEl) amtEl.textContent = '₱' + amount.toFixed(2);
 }
 
 function setWallet(w, btn) {
   curWallet = w;
-  document.querySelectorAll('.wt').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.wt').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const names = {gcash:'GCash',maya:'Maya',instapay:'InstaPay'};
-  const classes = {gcash:'lbl-gcash',maya:'lbl-maya',instapay:'lbl-instapay'};
+  const names   = {gcash:'GCash', maya:'Maya', instapay:'InstaPay'};
+  const colors  = {gcash:'linear-gradient(135deg,#1d4ed8,#2563eb)',
+                   maya:'linear-gradient(135deg,#059669,#047857)',
+                   instapay:'linear-gradient(135deg,#d97706,#b45309)'};
   const lbl = document.getElementById('walletBrandLbl');
-  lbl.textContent = names[w]; lbl.className = classes[w];
-  document.getElementById('walletAppName').textContent = names[w];
+  if (lbl) { lbl.textContent = names[w]; lbl.style.background = colors[w]; }
+  const appName = document.getElementById('walletAppName');
+  if (appName) appName.textContent = names[w];
   generateQR(currentTotal);
 }
 

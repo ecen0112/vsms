@@ -3,6 +3,7 @@
 {% block page_title %}Mobile Scanner{% endblock %}
 
 {% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
 .sw{max-width:480px;margin:0 auto}
 .sc{background:#fff;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:1rem;overflow:hidden}
@@ -15,33 +16,19 @@
 .rc.show{display:block;animation:pop .18s ease}
 @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
 .hr{display:flex;align-items:center;gap:.6rem;padding:.45rem .6rem;border-radius:8px;border:1px solid #f1f5f9;margin-bottom:.35rem;font-size:.82rem}
-
-/* Camera */
-#vw{position:relative;background:#000;display:none;width:100%}
-#vid{width:100%;display:block;max-height:260px;object-fit:cover}
-#aim{position:absolute;left:10%;right:10%;top:50%;transform:translateY(-50%);height:72px;border:3px solid #22c55e;border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
-#aim::after{content:'';display:block;position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#22c55e,transparent);animation:sl 1.8s ease-in-out infinite}
-@keyframes sl{0%,100%{top:5px}50%{top:calc(100% - 7px)}}
-.bcb{width:100%;padding:.72rem;border:none;background:#1e3a5f;color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem}
-.bcb:hover{background:#163060}.bcb.on{background:#dc2626}
-
-/* Method tabs */
-.mtab{display:flex;gap:.4rem;margin-bottom:1rem}
-.mt{flex:1;padding:.5rem;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;font-size:.8rem;font-weight:700;cursor:pointer;text-align:center;color:#64748b}
-.mt.on{border-color:#1e3a5f;background:#eff6ff;color:#1e3a5f}
-
-/* How-to steps */
-.steps{counter-reset:step}
-.step{display:flex;gap:.75rem;padding:.5rem 0;align-items:flex-start}
-.step-n{width:24px;height:24px;border-radius:50%;background:#1e3a5f;color:#fff;font-size:.78rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.step-t{font-size:.83rem;color:#374151;line-height:1.5}
+#reader{width:100%}
+#reader video{width:100%!important}
+#reader img{display:none!important}
+.scan-btn{width:100%;padding:.72rem;border:none;background:#1e3a5f;color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:background .15s}
+.scan-btn:hover{background:#163060}
+.scan-btn.active{background:#dc2626}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="sw">
 
-  <!-- Session status -->
+  <!-- Session -->
   <div class="sc scb" style="text-align:center">
     <div style="font-size:1.5rem;margin-bottom:.3rem">📱</div>
     <div style="font-weight:700;margin-bottom:.25rem">Mobile Scanner</div>
@@ -49,62 +36,31 @@
     <div id="ses" class="sba">🔴 Checking…</div>
   </div>
 
-  <!-- Method tabs -->
-  <div class="mtab">
-    <button class="mt on" id="tab1" onclick="switchTab(1)">📷 Camera</button>
-    <button class="mt" id="tab2" onclick="switchTab(2)">🔗 Scan URL</button>
-    <button class="mt" id="tab3" onclick="switchTab(3)">⌨️ Manual</button>
+  <!-- Camera scanner -->
+  <div class="sc">
+    <div class="sch">
+      <span>📷 Camera Scanner</span>
+      <span id="scanStatus" style="font-size:.75rem;color:#94a3b8">Ready</span>
+    </div>
+    <div id="reader"></div>
+    <button class="scan-btn" id="scanBtn" onclick="toggleScanner()">
+      <i class="bi bi-camera-video"></i> Start Camera
+    </button>
   </div>
 
-  <!-- TAB 1: Camera with BarcodeDetector -->
-  <div id="panel1">
-    <div class="sc">
-      <div class="sch">
-        <span>📷 Live Camera</span>
-        <span id="eng" style="font-size:.72rem;color:#94a3b8"></span>
-      </div>
-      <div id="vw">
-        <video id="vid" autoplay playsinline muted></video>
-        <div id="aim"></div>
-      </div>
-      <button class="bcb" id="cb" onclick="toggleCam()">
-        <i class="bi bi-camera-video"></i> Start Camera
-      </button>
+  <!-- Manual input -->
+  <div class="sc scb">
+    <div style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:.5rem">⌨️ Type Barcode Manually</div>
+    <div style="display:flex;gap:.5rem">
+      <input type="text" id="mi" class="form-control"
+        style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
+        placeholder="e.g. 8901234560005"
+        autocomplete="off" inputmode="numeric">
+      <button class="btn-vsms" onclick="doManual()" style="flex-shrink:0">Search</button>
     </div>
   </div>
 
-  <!-- TAB 2: Scan URL approach — open URL from barcode using phone's own scanner -->
-  <div id="panel2" style="display:none">
-    <div class="sc scb">
-      <div style="font-weight:700;margin-bottom:.75rem;font-size:.95rem">How to use Scan URL</div>
-      <div class="steps">
-        <div class="step"><div class="step-n">1</div><div class="step-t">Open your phone's <strong>Camera app</strong> or <strong>Google Lens</strong></div></div>
-        <div class="step"><div class="step-n">2</div><div class="step-t">Point it at any product barcode on the shelf</div></div>
-        <div class="step"><div class="step-n">3</div><div class="step-t">The camera will detect a barcode — <strong>tap the notification</strong> that appears</div></div>
-        <div class="step"><div class="step-n">4</div><div class="step-t">If it doesn't open the product page automatically, copy the barcode number and paste it in the Manual tab</div></div>
-      </div>
-      <div style="margin-top:1rem;padding:.75rem;background:#f8fafc;border-radius:10px;font-size:.8rem;color:#475569;border:1px solid #e2e8f0">
-        <strong>Your scanner URL:</strong><br>
-        <code id="scanUrl" style="word-break:break-all;font-size:.78rem"></code>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB 3: Manual input -->
-  <div id="panel3" style="display:none">
-    <div class="sc scb">
-      <div style="font-size:.85rem;color:#64748b;margin-bottom:.75rem">Type or paste the barcode number from the product label</div>
-      <div style="display:flex;gap:.5rem">
-        <input type="text" id="mi" class="form-control"
-          style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
-          placeholder="e.g. 8901234560005"
-          autocomplete="off" inputmode="numeric">
-        <button class="btn-vsms" onclick="doManual()" style="flex-shrink:0">Search</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Last result -->
+  <!-- Result -->
   <div class="rc" id="rc">
     <div class="d-flex align-items-center gap-3">
       <div style="width:44px;height:44px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📦</div>
@@ -144,201 +100,269 @@
 <script>
 'use strict';
 
-/* ── Tabs ── */
-function switchTab(n) {
-  [1,2,3].forEach(i => {
-    document.getElementById('panel'+i).style.display = i===n ? '' : 'none';
-    document.getElementById('tab'+i).className = 'mt' + (i===n ? ' on' : '');
+let scanner = null;
+let scannerRunning = false;
+let cooldown = false;
+let lastProduct = null;
+let histArr = [];
+
+/* ── Scanner ── */
+function toggleScanner() {
+  scannerRunning ? stopScanner() : startScanner();
+}
+
+function startScanner() {
+  const btn = document.getElementById('scanBtn');
+  const status = document.getElementById('scanStatus');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting…';
+  btn.disabled = true;
+
+  // All supported 1D and 2D formats
+  const formats = [
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODE_93,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.DATA_MATRIX,
+  ];
+
+  scanner = new Html5Qrcode('reader', {
+    formatsToSupport: formats,
+    verbose: false
   });
-  if (n !== 1) stopCam();
-}
 
-/* ── Camera ── */
-let camOn=false, mediaStream=null, rafId=null, cooldown=false, lastProduct=null, histArr=[];
-
-async function toggleCam() { camOn ? stopCam() : await startCam(); }
-
-async function startCam() {
-  const btn = document.getElementById('cb');
-  btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Starting…';
-  btn.disabled=true;
-
-  // Check if BarcodeDetector is available BEFORE opening camera
-  const hasNative = typeof BarcodeDetector !== 'undefined';
-  if (!hasNative) {
-    // Show helpful message instead of failing silently
-    document.getElementById('eng').textContent = '⚠️ Use Manual tab on this browser';
-    btn.innerHTML='<i class="bi bi-camera-video"></i> Start Camera';
-    btn.disabled=false;
-    showToast('ℹ️ Camera scan not supported here — use Manual tab or open in Chrome', '#1e3a5f');
-    return;
-  }
-
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}}
-    });
-    const vid = document.getElementById('vid');
-    vid.srcObject = mediaStream;
-    await vid.play();
-    document.getElementById('vw').style.display='block';
-    camOn=true;
-    btn.className='bcb on';
-    btn.innerHTML='<i class="bi bi-stop-circle"></i> Stop Camera';
-    btn.disabled=false;
-    document.getElementById('eng').textContent='⚡ Native scanner';
-    startNative(vid);
-  } catch(e) {
-    btn.className='bcb'; btn.disabled=false;
-    btn.innerHTML='<i class="bi bi-camera-video"></i> Start Camera';
-    const msg = e.name==='NotAllowedError' ? 'Allow camera access then try again'
-              : e.name==='NotFoundError'   ? 'No camera found'
-              : 'Camera error: '+e.message;
-    showToast('❌ '+msg, '#dc2626');
-  }
-}
-
-function stopCam() {
-  if (rafId){cancelAnimationFrame(rafId);rafId=null;}
-  if (mediaStream){mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null;}
-  const vid=document.getElementById('vid');
-  vid.srcObject=null;
-  document.getElementById('vw').style.display='none';
-  const btn=document.getElementById('cb');
-  btn.className='bcb'; btn.innerHTML='<i class="bi bi-camera-video"></i> Start Camera';
-  document.getElementById('eng').textContent='';
-  camOn=false; cooldown=false;
-}
-
-function startNative(vid) {
-  const det = new BarcodeDetector({
-    formats:['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','qr_code','itf','data_matrix']
-  });
-  async function tick() {
-    if (!camOn) return;
-    if (!cooldown && vid.readyState >= 2) {
-      try {
-        const r = await det.detect(vid);
-        if (r.length>0) {
-          cooldown=true;
-          await doScan(r[0].rawValue);
-          setTimeout(()=>{cooldown=false;},2500);
-        }
-      } catch(e){}
+  // Find all cameras — prefer back camera
+  Html5Qrcode.getCameras().then(cameras => {
+    if (!cameras || cameras.length === 0) {
+      throw new Error('No camera found on this device');
     }
-    rafId=requestAnimationFrame(tick);
+    // Pick back/environment camera
+    let camId = cameras[cameras.length - 1].id; // last camera is usually back
+    const back = cameras.find(c =>
+      /back|rear|environment/i.test(c.label)
+    );
+    if (back) camId = back.id;
+
+    return scanner.start(
+      camId,
+      {
+        fps: 15,
+        qrbox: { width: 280, height: 100 },  // wide, short — perfect for barcodes
+        aspectRatio: 2.0,
+        disableFlip: false,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      },
+      // SUCCESS callback
+      async (decodedText) => {
+        if (cooldown) return;
+        cooldown = true;
+        status.textContent = '✅ Scanned!';
+        await doScan(decodedText);
+        setTimeout(() => {
+          cooldown = false;
+          status.textContent = 'Scanning…';
+        }, 2500);
+      },
+      // ERROR callback — fires constantly for frames with no barcode, just ignore
+      (err) => {}
+    );
+  }).then(() => {
+    scannerRunning = true;
+    btn.className = 'scan-btn active';
+    btn.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Camera';
+    btn.disabled = false;
+    status.textContent = 'Scanning…';
+    status.style.color = '#22c55e';
+  }).catch(err => {
+    scannerRunning = false;
+    btn.className = 'scan-btn';
+    btn.innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
+    btn.disabled = false;
+    const msg = (err.message || String(err)).includes('Permission')
+      ? 'Allow camera permission and try again'
+      : (err.message || String(err));
+    showToast('❌ ' + msg, '#dc2626');
+    status.textContent = 'Error';
+    status.style.color = '#dc2626';
+  });
+}
+
+function stopScanner() {
+  if (scanner) {
+    scanner.stop().catch(() => {}).finally(() => {
+      scanner.clear();
+      scanner = null;
+    });
   }
-  rafId=requestAnimationFrame(tick);
+  scannerRunning = false;
+  cooldown = false;
+  const btn = document.getElementById('scanBtn');
+  btn.className = 'scan-btn';
+  btn.innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
+  document.getElementById('scanStatus').textContent = 'Ready';
+  document.getElementById('scanStatus').style.color = '#94a3b8';
 }
 
-/* ── Manual ── */
-function doManual(){
-  const el=document.getElementById('mi');
-  const v=el.value.trim(); if(!v) return;
-  el.value=''; doScan(v);
+/* ── Manual input ── */
+function doManual() {
+  const el = document.getElementById('mi');
+  const v = el.value.trim();
+  if (!v) return;
+  el.value = '';
+  doScan(v);
 }
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('mi').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doManual();}});
 
-  // Set scan URL
-  const base = window.location.origin;
-  document.getElementById('scanUrl').textContent = base + '/scan/{barcode}';
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mi').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doManual(); }
+  });
 });
 
 /* ── Scan handler ── */
 async function doScan(code) {
-  code=(code||'').trim(); if(!code) return;
+  code = (code || '').trim();
+  if (!code) return;
   try {
-    const res  = await fetch('/api/products/barcode/'+encodeURIComponent(code));
+    const res = await fetch('/api/products/barcode/' + encodeURIComponent(code));
     const data = await res.json();
-    if (data.product){
-      lastProduct=data.product;
+    if (data.product) {
+      lastProduct = data.product;
       showResult(data.product);
-      addHist(code,data.product,true);
+      addHist(code, data.product, true);
       await pushToCart(data.product);
     } else {
-      lastProduct=null;
+      lastProduct = null;
       showNotFound(code);
-      addHist(code,null,false);
+      addHist(code, null, false);
+      showToast('❌ Not found: ' + code, '#dc2626');
     }
-  } catch(e){ showToast('❌ Network error','#dc2626'); }
+  } catch (e) {
+    showToast('❌ Network error', '#dc2626');
+  }
 }
 
 /* ── Display ── */
-function showResult(p){
-  document.getElementById('rn').textContent=p.product_name;
-  document.getElementById('rk').textContent=p.category+(p.brand?' · '+p.brand:'');
-  document.getElementById('rp').textContent='₱'+parseFloat(p.price).toFixed(2);
-  document.getElementById('rs').textContent='Stock: '+p.stock+' '+p.unit;
-  document.getElementById('sb').disabled=p.stock<=0;
-  const c=document.getElementById('rc');
-  c.className='rc show'; c.style.borderColor=p.stock>0?'#bfdbfe':'#ffcdd2';
+function showResult(p) {
+  document.getElementById('rn').textContent = p.product_name;
+  document.getElementById('rk').textContent = p.category + (p.brand ? ' · ' + p.brand : '');
+  document.getElementById('rp').textContent = '₱' + parseFloat(p.price).toFixed(2);
+  document.getElementById('rs').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
+  document.getElementById('sb').disabled = p.stock <= 0;
+  const c = document.getElementById('rc');
+  c.className = 'rc show';
+  c.style.borderColor = p.stock > 0 ? '#bfdbfe' : '#ffcdd2';
 }
-function showNotFound(code){
-  document.getElementById('rn').textContent='Product not found';
-  document.getElementById('rk').textContent='Barcode: '+code;
-  document.getElementById('rp').textContent='—';
-  document.getElementById('rs').textContent='';
-  document.getElementById('sb').disabled=true;
-  const c=document.getElementById('rc');
-  c.className='rc show'; c.style.borderColor='#ffcdd2';
-}
-function clearRes(){document.getElementById('rc').className='rc';lastProduct=null;}
-function sendLast(){if(lastProduct)pushToCart(lastProduct);}
 
-/* ── Push ── */
-async function pushToCart(prod){
-  try{
-    const r=await fetch('/api/scan-session/push',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({product:prod})
+function showNotFound(code) {
+  document.getElementById('rn').textContent = 'Product not found';
+  document.getElementById('rk').textContent = 'Barcode: ' + code;
+  document.getElementById('rp').textContent = '—';
+  document.getElementById('rs').textContent = '';
+  document.getElementById('sb').disabled = true;
+  const c = document.getElementById('rc');
+  c.className = 'rc show';
+  c.style.borderColor = '#ffcdd2';
+}
+
+function clearRes() {
+  document.getElementById('rc').className = 'rc';
+  lastProduct = null;
+}
+
+function sendLast() {
+  if (lastProduct) pushToCart(lastProduct);
+}
+
+/* ── Push to POS ── */
+async function pushToCart(prod) {
+  try {
+    const r = await fetch('/api/scan-session/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product: prod })
     });
-    const d=await r.json();
-    if(d.success){showToast('✅ '+prod.product_name+' → POS cart','#059669');setSes(true);}
-    else{showToast('⚠️ '+(d.message||'Not sent'),'#d97706');}
-  } catch{showToast('❌ Server unreachable','#dc2626');}
+    const d = await r.json();
+    if (d.success) {
+      showToast('✅ ' + prod.product_name + ' → POS cart', '#059669');
+      setSes(true);
+    } else {
+      showToast('⚠️ ' + (d.message || 'Not sent'), '#d97706');
+    }
+  } catch {
+    showToast('❌ Server unreachable', '#dc2626');
+  }
 }
 
 /* ── Session ── */
-function setSes(ok){
-  const el=document.getElementById('ses');
-  el.className=ok?'sok':'sba';
-  el.textContent=ok?'🟢 POS session ready':'🔴 Open POS page first';
+function setSes(ok) {
+  const el = document.getElementById('ses');
+  el.className = ok ? 'sok' : 'sba';
+  el.textContent = ok ? '🟢 POS session ready' : '🔴 Open POS page first';
 }
-async function checkSes(){
-  try{const r=await fetch('/api/scan-session/info');const d=await r.json();setSes(!!d.session_id);}
-  catch{document.getElementById('ses').textContent='🔴 Server unreachable';}
+
+async function checkSes() {
+  try {
+    const r = await fetch('/api/scan-session/info');
+    const d = await r.json();
+    setSes(!!d.session_id);
+  } catch {
+    document.getElementById('ses').textContent = '🔴 Server unreachable';
+  }
 }
 
 /* ── History ── */
-function addHist(code,product,found){histArr.unshift({code,product,found,time:new Date().toLocaleTimeString('en-PH')});renderHist();}
-function renderHist(){
-  document.getElementById('hb').textContent=histArr.length;
-  const el=document.getElementById('hl');
-  if(!histArr.length){el.innerHTML='<div class="text-muted text-center small py-3">No scans yet</div>';return;}
-  el.innerHTML=histArr.map(s=>`
+function addHist(code, product, found) {
+  histArr.unshift({ code, product, found, time: new Date().toLocaleTimeString('en-PH') });
+  renderHist();
+}
+
+function renderHist() {
+  document.getElementById('hb').textContent = histArr.length;
+  const el = document.getElementById('hl');
+  if (!histArr.length) {
+    el.innerHTML = '<div class="text-muted text-center small py-3">No scans yet</div>';
+    return;
+  }
+  el.innerHTML = histArr.map(s => `
     <div class="hr">
-      <span>${s.found?'✅':'❌'}</span>
+      <span>${s.found ? '✅' : '❌'}</span>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-          ${s.product?s.product.product_name:'Not found: '+s.code}
+          ${s.product ? s.product.product_name : 'Not found: ' + s.code}
         </div>
-        <div style="font-size:.7rem;color:#94a3b8">${s.time}${s.product?' · ₱'+parseFloat(s.product.price).toFixed(2):''}</div>
+        <div style="font-size:.7rem;color:#94a3b8">
+          ${s.time}${s.product ? ' · ₱' + parseFloat(s.product.price).toFixed(2) : ''}
+        </div>
       </div>
-      ${s.product&&s.product.stock>0?`<button class="btn-vsms btn-vsms-sm" onclick='pushToCart(${JSON.stringify(s.product)})'><i class="bi bi-cart-plus"></i></button>`:''}
+      ${s.product && s.product.stock > 0
+        ? `<button class="btn-vsms btn-vsms-sm" onclick='pushToCart(${JSON.stringify(s.product)})'>
+            <i class="bi bi-cart-plus"></i></button>`
+        : ''}
     </div>`).join('');
 }
-function clearHist(){histArr=[];renderHist();}
+
+function clearHist() {
+  histArr = [];
+  renderHist();
+}
 
 /* ── Toast ── */
-function showToast(msg,bg){
-  const el=document.getElementById('tf');
-  el.textContent=msg;el.style.background=bg||'#0f172a';el.style.display='block';
-  clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',3000);
+function showToast(msg, bg) {
+  const el = document.getElementById('tf');
+  el.textContent = msg;
+  el.style.background = bg || '#0f172a';
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 3000);
 }
 
 /* ── Init ── */
 checkSes();
-setInterval(checkSes,30000);
+setInterval(checkSes, 30000);
 </script>
 {% endblock %}
