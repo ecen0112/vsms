@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Scan Result — VSMS{% endblock %}
+{% block page_title %}Scan Result{% endblock %}
+{% block head %}
+<style>
+.sr-wrap{max-width:420px;margin:0 auto;padding:.5rem}
+.sr-card{background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:1.5rem;margin-bottom:1rem;text-align:center}
+.sr-icon{font-size:3rem;margin-bottom:.5rem}
+.sr-name{font-size:1.2rem;font-weight:800;color:#0f172a;margin-bottom:.25rem}
+.sr-cat{font-size:.85rem;color:#64748b;margin-bottom:.75rem}
+.sr-price{font-size:2rem;font-weight:800;color:#059669;margin-bottom:.25rem}
+.sr-stock{font-size:.85rem;color:#94a3b8;margin-bottom:1.2rem}
+.sr-btn{display:block;width:100%;padding:.9rem;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-bottom:.6rem}
+.sr-btn-add{background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff}
+.sr-btn-back{background:#f1f5f9;color:#1e3a5f}
+.sr-notfound{background:#fef2f2;border:1.5px solid #fecaca;border-radius:16px;padding:2rem;text-align:center;margin-bottom:1rem}
+.toast-bar{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  padding:.6rem 1.4rem;border-radius:20px;font-weight:700;font-size:.9rem;
+  color:#fff;z-index:9999;display:none;white-space:nowrap;
+  box-shadow:0 4px 18px rgba(0,0,0,.25)}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sr-wrap">
+
+{% if product %}
+  <div class="sr-card" id="mainCard">
+    <div class="sr-icon">📦</div>
+    <div class="sr-name">{{ product.product_name }}</div>
+    <div class="sr-cat">{{ product.category }}{% if product.brand %} · {{ product.brand }}{% endif %}</div>
+    <div class="sr-price">₱{{ "%.2f"|format(product.price) }}</div>
+    <div class="sr-stock">
+      {% if product.stock > 0 %}
+        ✅ {{ product.stock }} {{ product.unit }} in stock
+      {% else %}
+        ❌ Out of stock
+      {% endif %}
+    </div>
+
+    {% if product.stock > 0 %}
+    <button class="sr-btn sr-btn-add" id="addBtn" onclick="addToCart()">
+      <i class="bi bi-cart-plus me-2"></i>Add to POS Cart
+    </button>
+    {% endif %}
+    <button class="sr-btn sr-btn-back" onclick="window.location.href='/mobile-scan'">
+      ← Scan Another
+    </button>
+  </div>
+{% else %}
+  <div class="sr-notfound">
+    <div style="font-size:2.5rem;margin-bottom:.5rem">❌</div>
+    <div style="font-weight:700;font-size:1rem;margin-bottom:.3rem">Product Not Found</div>
+    <div style="font-size:.85rem;color:#dc2626;margin-bottom:1rem">Barcode: <strong>{{ barcode }}</strong></div>
+    <button class="sr-btn sr-btn-back" onclick="window.location.href='/mobile-scan'">
+      ← Go Back to Scanner
+    </button>
+  </div>
+{% endif %}
+
+</div>
+<div class="toast-bar" id="toastBar"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PRODUCT = {{ product_json | safe }};
+
+// Auto-push to cart when page loads (if product found)
+window.addEventListener('DOMContentLoaded', () => {
+  if (PRODUCT) {
+    addToCart(true); // true = auto (no manual click)
+  }
+});
+
+async function addToCart(auto) {
+  const btn = document.getElementById('addBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding…'; }
+
+  try {
+    const res = await fetch('/api/scan-session/push', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({product: PRODUCT})
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast('✅ Added to POS cart!', '#059669');
+      if (btn) { btn.innerHTML = '✅ Added to Cart'; btn.style.background = '#059669'; }
+      // Auto go back to scanner after 1.5s
+      if (auto) setTimeout(() => window.location.href = '/mobile-scan', 1500);
+    } else {
+      showToast('⚠️ ' + (d.message || 'Could not add'), '#d97706');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cart-plus me-2"></i>Add to POS Cart'; }
+    }
+  } catch(e) {
+    showToast('❌ Network error', '#dc2626');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cart-plus me-2"></i>Add to POS Cart'; }
+  }
+}
+
+function showToast(msg, bg) {
+  const el = document.getElementById('toastBar');
+  el.textContent = msg; el.style.background = bg; el.style.display = 'block';
+  clearTimeout(el._t); el._t = setTimeout(() => el.style.display='none', 3000);
+}
+</script>
+{% endblock %}

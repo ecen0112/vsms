@@ -197,6 +197,19 @@ def get_by_barcode(barcode):
         return jsonify({'product': dict(product)})
     return jsonify({'product': None, 'message': 'Product not found'}), 404
 
+@product_bp.route('/scan/<barcode>')
+@login_required
+def scan_barcode_page(barcode):
+    """Mobile-friendly page: scan a barcode URL → auto-push to POS cart → show result."""
+    import json as _json
+    conn = get_db()
+    product = conn.execute("""SELECT p.*, s.name as supplier_name
+        FROM products p LEFT JOIN suppliers s ON p.supplier_id=s.supplier_id
+        WHERE p.barcode=? AND p.is_active=1""", (barcode,)).fetchone()
+    conn.close()
+    product_json = _json.dumps(dict(product)) if product else 'null'
+    return render_template('scan_result.html', product=product, barcode=barcode, product_json=product_json)
+
 @product_bp.route('/api/products/search')
 @login_required
 def search_api():
