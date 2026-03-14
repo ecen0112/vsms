@@ -19,15 +19,10 @@ def generate_txn_code():
     rand = ''.join(random.choices(string.digits + string.ascii_uppercase, k=5))
     return f"TXN-{date_str}-{rand}"
 
-@pos_bp.route('/pos')
-@login_required
-def index():
-    return render_template('pos.html')
-
 @pos_bp.route('/api/pos/products-all')
 @login_required
 def products_all():
-    """Returns ALL products in one shot – cached on the client for fast POS."""
+    """Returns ALL products - used by mobile scan and API consumers."""
     conn = get_db()
     products = conn.execute("""
         SELECT product_id, product_name, barcode, category, brand,
@@ -38,6 +33,23 @@ def products_all():
     """).fetchall()
     conn.close()
     return jsonify({'products': [dict(p) for p in products]})
+
+@pos_bp.route('/pos')
+@login_required
+def index():
+    """POS page — products embedded directly in HTML so zero extra fetch needed."""
+    conn = get_db()
+    products = conn.execute("""
+        SELECT product_id, product_name, barcode, category, brand,
+               price, cost_price, stock, unit, requires_prescription,
+               low_stock_threshold, image
+        FROM products WHERE is_active=1
+        ORDER BY category, product_name
+    """).fetchall()
+    conn.close()
+    import json as _json
+    products_json = _json.dumps([dict(p) for p in products])
+    return render_template('pos.html', products_json=products_json)
 
 @pos_bp.route('/api/pos/checkout', methods=['POST'])
 @login_required

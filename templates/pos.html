@@ -535,17 +535,29 @@ let camScanner = null;
 /* ═══════════════════════════════════════════════════════════
    PRODUCT LOADING & GRID
 ═══════════════════════════════════════════════════════════ */
+// Products embedded directly in page by server — zero network request needed
+const _EMBEDDED_PRODUCTS = {{ products_json | safe }};
+
 async function loadProds() {
+  // Use embedded data instantly
+  allProds = _EMBEDDED_PRODUCTS || [];
+  renderGrid();
+  populateBcSelect();
+
+  // Silently refresh in background to pick up any stock changes
   try {
-    const res  = await fetch('/api/pos/products-all');
-    const data = await res.json();
-    allProds = data.products || [];
-    renderGrid();
-    populateBcSelect();
-  } catch(e) {
-    document.getElementById('pgrid').innerHTML =
-      '<div class="grid-msg text-danger"><i class="bi bi-exclamation-circle" style="font-size:1.5rem"></i><p>Failed to load products</p></div>';
-  }
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('/api/pos/products-all', { signal: controller.signal });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.products && data.products.length) {
+        allProds = data.products;
+        renderGrid();
+        populateBcSelect();
+      }
+    }
+  } catch(e) { /* silent — embedded data already shown */ }
 }
 
 function renderGrid() {
@@ -1180,7 +1192,7 @@ async function toggleCam() {
     _posCamScanning = false;
   }
   }
-
+}
 
 /* ── Search dropdown ─────────────────────────────────────── */
 let srchTimer;
