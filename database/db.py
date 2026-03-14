@@ -295,9 +295,7 @@ def init_db():
 
     conn.commit()
 
-    # ── Migration: ensure scan tables exist (safe for existing live DBs) ──────
-    # This runs every startup via CREATE TABLE IF NOT EXISTS, so it's safe
-    # to run against a database that was created before these tables existed.
+    # ── Migration: ensure scan tables + indexes exist ────────────────────────
     c.executescript('''
         CREATE TABLE IF NOT EXISTS scan_sessions (
             session_id   TEXT PRIMARY KEY,
@@ -312,6 +310,14 @@ def init_db():
             consumed     INTEGER DEFAULT 0,
             created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE INDEX IF NOT EXISTS idx_products_active
+            ON products(is_active, category, product_name);
+        CREATE INDEX IF NOT EXISTS idx_products_barcode
+            ON products(barcode);
+        CREATE INDEX IF NOT EXISTS idx_scan_queue_session
+            ON scan_queue(session_id, consumed);
+        CREATE INDEX IF NOT EXISTS idx_scan_sessions_user
+            ON scan_sessions(user_id);
     ''')
     conn.commit()
     conn.close()

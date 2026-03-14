@@ -3,7 +3,6 @@
 {% block page_title %}Point of Sale{% endblock %}
 
 {% block head %}
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 /* ── Layout ─────────────────────────────────────────────────── */
 .pos-root{display:grid;grid-template-columns:1fr 390px;gap:1rem;height:calc(100vh - 128px);min-height:520px}
@@ -1127,12 +1126,29 @@ async function lookupBarcode(code) {
   } catch { toast('Barcode lookup failed','d'); }
 }
 
-/* ── Camera scanner (ZXing — reliable Code128 decoding) ─── */
+/* ── Camera scanner (ZXing lazy-loaded on first use) ──────── */
+let _zxingReady = false;
 let _posCamScanning = false;
+
+function _loadZXing() {
+  return new Promise((resolve, reject) => {
+    if (typeof ZXing !== 'undefined') { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Failed to load ZXing'));
+    document.head.appendChild(s);
+  });
+}
+
 async function toggleCam() {
   const area = document.getElementById('camArea');
   const txt  = document.getElementById('camTxt');
   if (!camOpen) {
+    txt.textContent = '…';
+    try {
+      await _loadZXing();
+    } catch(e) { toast('Could not load camera library', 'd'); txt.textContent = 'Camera'; return; }
     area.style.display = 'block';
     txt.textContent = 'Stop';
     camOpen = true;
@@ -1385,14 +1401,11 @@ function _nextToast(){
 
 /* ═══════════════════════════════════════════════════════════
    SERVER-SIDE MOBILE SCAN POLLING
-   Replaces BroadcastChannel (which only works same device/browser)
 ═══════════════════════════════════════════════════════════ */
 let _pollInterval = null;
 
 async function initScanSession() {
-  try {
-    await fetch('/api/scan-session/info');  // creates session for this user if not exists
-  } catch(e) { /* non-fatal */ }
+  try { await fetch('/api/scan-session/info'); } catch(e) {}
 }
 
 async function pollMobileScan() {
@@ -1405,7 +1418,7 @@ async function pollMobileScan() {
         toast('📱 ' + prod.product_name + ' added from mobile', 'i');
       });
     }
-  } catch(e) { /* non-fatal */ }
+  } catch(e) {}
 }
 
 function startScanPolling() {
@@ -1414,12 +1427,15 @@ function startScanPolling() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   INIT
+   INIT — products first, then background tasks
 ═══════════════════════════════════════════════════════════ */
 showCartEmpty();
-loadProds();
 document.getElementById('barcodeIn').focus();
-initScanSession();
-startScanPolling();
+// Load products immediately — this is the main content
+loadProds().then(() => {
+  // After products are loaded, start background tasks
+  initScanSession();
+  startScanPolling();
+});
 </script>
 {% endblock %}
