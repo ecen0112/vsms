@@ -3,7 +3,7 @@
 {% block page_title %}Point of Sale{% endblock %}
 
 {% block head %}
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <style>
 /* ── Layout ─────────────────────────────────────────────────── */
 .pos-root{display:grid;grid-template-columns:1fr 390px;gap:1rem;height:calc(100vh - 128px);min-height:520px}
@@ -209,8 +209,8 @@
         </div>
       </div>
       <div id="camArea" style="display:none;margin-top:.65rem">
-        <div id="camReader" style="border-radius:11px;overflow:hidden"></div>
-        <p class="text-muted text-center small mt-1">Point camera at barcode</p>
+        <video id="camVideo" style="width:100%;border-radius:11px;background:#000" autoplay playsinline muted></video>
+        <p class="text-muted text-center small mt-1">Point camera at barcode — hold steady</p>
       </div>
       <div class="hot-bar">
         <div class="h-item"><span class="sc-key">F2</span> Scan</div>
@@ -1127,37 +1127,42 @@ async function lookupBarcode(code) {
   } catch { toast('Barcode lookup failed','d'); }
 }
 
-/* ── Camera scanner ──────────────────────────────────────── */
-function toggleCam() {
+/* ── Camera scanner (ZXing — reliable Code128 decoding) ─── */
+let _posCamScanning = false;
+async function toggleCam() {
   const area = document.getElementById('camArea');
   const txt  = document.getElementById('camTxt');
   if (!camOpen) {
     area.style.display = 'block';
     txt.textContent = 'Stop';
     camOpen = true;
-    const _fmt = Html5QrcodeSupportedFormats;
-    camScanner = new Html5QrcodeScanner('camReader', {
-      fps: 15,
-      qrbox: { width: 300, height: 100 },
-      aspectRatio: 2.5,
-      showTorchButtonIfSupported: true,
-      formatsToSupport: [
-        _fmt.CODE_128, _fmt.CODE_39, _fmt.CODE_93,
-        _fmt.EAN_13,   _fmt.EAN_8,   _fmt.UPC_A, _fmt.UPC_E,
-        _fmt.ITF,      _fmt.QR_CODE
-      ],
-      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-    });
-    camScanner.render(async code => {
-      camScanner.pause();
-      await lookupBarcode(code);
-      setTimeout(() => camScanner.resume && camScanner.resume(), 1800);
-    });
+    _posCamScanning = false;
+    try {
+      camScanner = new ZXing.BrowserMultiFormatReader();
+      const devices = await camScanner.listVideoInputDevices();
+      let deviceId = devices[0]?.deviceId;
+      const rear = devices.find(d => /back|rear|environment/i.test(d.label));
+      if (rear) deviceId = rear.deviceId;
+      await camScanner.decodeFromVideoDevice(deviceId, 'camVideo', async (result, err) => {
+        if (result && !_posCamScanning) {
+          _posCamScanning = true;
+          await lookupBarcode(result.getText());
+          setTimeout(() => { _posCamScanning = false; }, 1800);
+        }
+      });
+    } catch(e) {
+      camOpen = false;
+      area.style.display = 'none';
+      txt.textContent = 'Camera';
+      toast('Camera error: ' + (e.message || e), 'd');
+    }
   } else {
-    if (camScanner) { camScanner.clear().catch(()=>{}); camScanner = null; }
+    if (camScanner) { camScanner.reset(); camScanner = null; }
     area.style.display = 'none';
     txt.textContent = 'Camera';
     camOpen = false;
+    _posCamScanning = false;
+  }
   }
 }
 
