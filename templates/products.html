@@ -218,7 +218,7 @@
           <i class="bi bi-eye"></i>View
         </button>
         {% if session.role in ['admin','inventory_manager'] %}
-        <button class="pc-ft-btn pc-btn-edit" onclick="openEditModal({{ p | todict | tojson | e }})">
+        <button class="pc-ft-btn pc-btn-edit" data-product='{{ p | todict | tojson }}' onclick="openEditModalFromBtn(this)">
           <i class="bi bi-pencil"></i>Edit
         </button>
         {% endif %}
@@ -271,7 +271,7 @@
               <div class="action-btns">
                 <button class="btn-icon btn-view" onclick="openDrawer({{ p.product_id }})" title="View"><i class="bi bi-eye"></i></button>
                 {% if session.role in ['admin','inventory_manager'] %}
-                <button class="btn-icon btn-edit" onclick="openEditModal({{ p | todict | tojson | e }})" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn-icon btn-edit" data-product='{{ p | todict | tojson }}' onclick="openEditModalFromBtn(this)" title="Edit"><i class="bi bi-pencil"></i></button>
                 {% endif %}
                 <button class="btn-icon btn-view" onclick="quickPrintLabel({{ p.product_id }},'{{ p.product_name|e }}','{{ p.barcode }}',{{ p.price }})" title="Print barcode" style="background:#e3f2fd;color:#1565c0"><i class="bi bi-upc"></i></button>
                 {% if session.role=='admin' %}
@@ -693,6 +693,17 @@ async function promptDeductFromDrawer(pid, name, stock) {
    MODALS (Add / Edit)
 ═══════════════════════════════════════════════════════════════════ */
 function openAddModal() { new bootstrap.Modal(document.getElementById('addProductModal')).show(); }
+
+function openEditModalFromBtn(btn) {
+  try {
+    const raw = btn.getAttribute('data-product');
+    const p   = JSON.parse(raw);
+    openEditModal(p);
+  } catch(e) {
+    console.error('Failed to parse product data:', e);
+    alert('Could not open edit form. Please refresh the page.');
+  }
+}
 
 function openEditModal(p) {
   document.getElementById('e-name').value    = p.product_name;
