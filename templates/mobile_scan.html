@@ -4,436 +4,474 @@
 
 {% block head %}
 <style>
-.scan-wrap { max-width: 480px; margin: 0 auto; }
-.scan-card { background:#fff; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:1rem; overflow:hidden; }
-.scan-card-body { padding:.9rem; }
-
-/* Video viewer */
-#videoWrap { position:relative; background:#000; width:100%; display:none; }
-#videoWrap video { width:100%; display:block; max-height:260px; object-fit:cover; }
-/* Aim box overlay */
-#aimBox {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:75%; height:35%; border:2.5px solid #22c55e; border-radius:8px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
-  pointer-events:none;
-}
-/* Scanning line animation */
-#aimBox::after {
-  content:''; display:block; position:absolute;
-  left:4px; right:4px; height:2px;
-  background:linear-gradient(90deg, transparent, #22c55e, transparent);
-  animation: scanline 1.8s ease-in-out infinite;
-  top:0;
-}
-@keyframes scanline { 0%,100%{top:10%} 50%{top:85%} }
-
-.btn-cam { width:100%; padding:.72rem; border:none; border-radius:0 0 14px 14px;
-  background:#1e3a5f; color:#fff; font-size:.95rem; font-weight:700;
-  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:.5rem; }
-.btn-cam:hover { background:#163060; }
-.btn-cam.on { background:#dc2626; }
-
-/* Result */
-.result-card { background:#fff; border-radius:14px; border:1.5px solid #bfdbfe;
-  padding:1rem; margin-bottom:1rem; display:none; }
-.result-card.show { display:block; animation:pop .18s ease; }
-@keyframes pop { from{transform:scale(.96);opacity:0} to{transform:scale(1);opacity:1} }
-
-/* History */
-.h-row { display:flex; align-items:center; gap:.6rem; padding:.45rem .6rem;
-  border-radius:8px; border:1px solid #f1f5f9; margin-bottom:.35rem; font-size:.82rem; }
-
-/* Session */
-.s-ok  { background:#f0fdf4; color:#15803d; border-radius:20px; padding:.3rem .85rem;
-  font-size:.78rem; font-weight:700; display:inline-block; }
-.s-bad { background:#fef2f2; color:#dc2626; border-radius:20px; padding:.3rem .85rem;
-  font-size:.78rem; font-weight:700; display:inline-block; }
-
-/* Toast */
-.toast { display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
-  color:#fff; border-radius:20px; padding:.55rem 1.4rem; font-size:.85rem; font-weight:700;
-  z-index:9999; box-shadow:0 4px 18px rgba(0,0,0,.3); white-space:nowrap; }
+.sw{max-width:480px;margin:0 auto}
+.sc{background:#fff;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:1rem;overflow:hidden}
+.sch{padding:.75rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:.92rem}
+.scb{padding:.9rem}
+#vw{position:relative;background:#111;display:none;width:100%}
+#vw video{width:100%;display:block;max-height:280px;object-fit:cover}
+#cv{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:0}
+#aim{position:absolute;left:10%;right:10%;top:50%;transform:translateY(-50%);
+  height:80px;border:3px solid #22c55e;border-radius:6px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.55);pointer-events:none}
+#aim::after{content:'';display:block;position:absolute;left:0;right:0;
+  height:2px;background:linear-gradient(90deg,transparent,#22c55e,transparent);
+  animation:sl 1.8s ease-in-out infinite}
+@keyframes sl{0%,100%{top:5px}50%{top:calc(100% - 7px)}}
+.bcb{width:100%;padding:.72rem;border:none;border-radius:0 0 14px 14px;
+  background:#1e3a5f;color:#fff;font-size:.95rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.bcb:hover{background:#163060}.bcb.on{background:#dc2626}
+.rc{border-radius:14px;border:1.5px solid #bfdbfe;padding:1rem;margin-bottom:1rem;display:none}
+.rc.show{display:block}
+.hr{display:flex;align-items:center;gap:.6rem;padding:.4rem .6rem;
+  border-radius:8px;border:1px solid #f1f5f9;margin-bottom:.3rem;font-size:.82rem}
+.sok{background:#f0fdf4;color:#15803d;border-radius:20px;padding:.3rem .85rem;font-size:.78rem;font-weight:700;display:inline-block}
+.sba{background:#fef2f2;color:#dc2626;border-radius:20px;padding:.3rem .85rem;font-size:.78rem;font-weight:700;display:inline-block}
+.tf{display:none;position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  color:#fff;border-radius:20px;padding:.55rem 1.4rem;font-size:.85rem;font-weight:700;
+  z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.3);white-space:nowrap}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="scan-wrap">
+<div class="sw">
 
-  <!-- Status -->
-  <div class="scan-card scan-card-body" style="text-align:center">
+  <div class="sc scb" style="text-align:center">
     <div style="font-size:1.5rem;margin-bottom:.3rem">📱</div>
-    <div style="font-weight:700;font-size:.95rem;margin-bottom:.25rem">Mobile Scanner</div>
+    <div style="font-weight:700;margin-bottom:.25rem">Mobile Scanner</div>
     <div style="font-size:.8rem;color:#64748b;margin-bottom:.5rem">Scanned items go straight to the POS cart</div>
-    <div id="sessionEl" class="s-bad">🔴 Checking…</div>
+    <div id="ses" class="sba">🔴 Checking…</div>
   </div>
 
-  <!-- Camera -->
-  <div class="scan-card">
-    <div style="padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
-      <span style="font-weight:700;font-size:.92rem">📷 Camera Scanner</span>
-      <span id="engineLabel" style="font-size:.72rem;color:#94a3b8"></span>
+  <div class="sc">
+    <div class="sch">
+      <span>📷 Camera Scanner</span>
+      <span id="eng" style="font-size:.72rem;color:#94a3b8"></span>
     </div>
-    <div id="videoWrap">
-      <video id="video" autoplay playsinline muted></video>
-      <div id="aimBox"></div>
+    <div id="vw">
+      <video id="vid" autoplay playsinline muted></video>
+      <canvas id="cv"></canvas>
+      <div id="aim"></div>
     </div>
-    <button class="btn-cam" id="camBtn" onclick="toggleCam()">
+    <button class="bcb" id="cb" onclick="toggleCam()">
       <i class="bi bi-camera-video"></i> Start Camera
     </button>
   </div>
 
-  <!-- Manual input fallback -->
-  <div class="scan-card scan-card-body">
+  <div class="sc scb">
     <div style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:.5rem">⌨️ Type Barcode Manually</div>
     <div style="display:flex;gap:.5rem">
-      <input type="text" id="manualIn" class="form-control"
+      <input type="text" id="mi" class="form-control"
         style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
-        placeholder="Type barcode then press Enter…"
-        autocomplete="off" inputmode="numeric">
-      <button class="btn-vsms" onclick="submitManual()" style="flex-shrink:0">Search</button>
+        placeholder="Type barcode…" autocomplete="off" inputmode="numeric">
+      <button class="btn-vsms" onclick="doManual()" style="flex-shrink:0">Go</button>
     </div>
   </div>
 
-  <!-- Last result -->
-  <div class="result-card" id="resultCard">
+  <div class="rc" id="rc">
     <div class="d-flex align-items-center gap-3">
       <div style="width:44px;height:44px;background:#eff6ff;border-radius:10px;
         display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📦</div>
       <div style="flex:1">
-        <div style="font-weight:700;font-size:.9rem" id="rName">—</div>
-        <div style="font-size:.78rem;color:#64748b" id="rCat">—</div>
+        <div style="font-weight:700;font-size:.9rem" id="rn">—</div>
+        <div style="font-size:.78rem;color:#64748b" id="rk">—</div>
       </div>
       <div style="text-align:right">
-        <div style="font-weight:800;color:#059669" id="rPrice">—</div>
-        <div style="font-size:.72rem;color:#94a3b8" id="rStock">—</div>
+        <div style="font-weight:800;color:#059669" id="rp">—</div>
+        <div style="font-size:.72rem;color:#94a3b8" id="rs">—</div>
       </div>
     </div>
     <div style="margin-top:.7rem;display:flex;gap:.5rem">
-      <button class="btn-vsms" style="flex:1" id="sendBtn" onclick="sendLast()">
+      <button class="btn-vsms" style="flex:1" id="sb" onclick="sendLast()">
         <i class="bi bi-cart-plus me-1"></i>Send to POS Cart
       </button>
-      <button class="btn-vsms-outline" onclick="clearResult()"><i class="bi bi-x-lg"></i></button>
+      <button class="btn-vsms-outline" onclick="clearRes()"><i class="bi bi-x-lg"></i></button>
     </div>
   </div>
 
-  <!-- History -->
-  <div class="scan-card">
-    <div style="padding:.65rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:700;font-size:.88rem">Scan History
-        <span class="badge bg-success ms-1" id="histBadge">0</span>
-      </span>
+  <div class="sc">
+    <div class="sch">
+      Scan History <span class="badge bg-success ms-1" id="hb">0</span>
       <button class="btn-vsms-sm" onclick="clearHist()">Clear</button>
     </div>
-    <div id="histList" style="padding:.6rem;max-height:260px;overflow-y:auto">
+    <div id="hl" style="padding:.6rem;max-height:250px;overflow-y:auto">
       <div class="text-muted text-center small py-3">No scans yet</div>
     </div>
   </div>
 
 </div>
-<div class="toast" id="toastEl"></div>
+<div class="tf" id="tf"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-/* ═══════════════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════════════ */
-let camOn = false;
-let stream = null;
-let scanLoop = null;
-let lastProduct = null;
-let histArr = [];
-let debounce = false;
+'use strict';
+/* ─────────────────────────────────────────────────────
+   PURE-JS CODE128 / EAN-13 / EAN-8 / UPC-A DECODER
+   No CDN. No library. Reads pixel rows from canvas.
+───────────────────────────────────────────────────── */
 
-/* ═══════════════════════════════════════════════════════
-   SESSION CHECK
-═══════════════════════════════════════════════════════ */
-async function checkSession() {
-  try {
-    const r = await fetch('/api/scan-session/info');
-    const d = await r.json();
-    const el = document.getElementById('sessionEl');
-    if (d.session_id) {
-      el.className = 's-ok';
-      el.textContent = '🟢 POS session ready';
-    } else {
-      el.className = 's-bad';
-      el.textContent = '🔴 Open POS page first';
+// Code 128 symbol table (bars pattern as string of 1s and 0s)
+const C128 = {
+  0:'11011001100',1:'11001101100',2:'11001100110',3:'10010011000',
+  4:'10010001100',5:'10001001100',6:'10011001000',7:'10011000100',
+  8:'10001100100',9:'11001001000',10:'11001000100',11:'11000100100',
+  12:'10110011100',13:'10011011100',14:'10011001110',15:'10111001100',
+  16:'10011101100',17:'10011100110',18:'11001110010',19:'11001011100',
+  20:'11001001110',21:'11011100100',22:'11001110100',23:'11101101110',
+  24:'11101001100',25:'11100101100',26:'11100100110',27:'11101100100',
+  28:'11100110100',29:'11100110010',30:'11011011000',31:'11011000110',
+  32:'11000110110',33:'10100011000',34:'10001011000',35:'10001000110',
+  36:'10110001000',37:'10001101000',38:'10001100010',39:'11010001000',
+  40:'11000101000',41:'11000100010',42:'10110111000',43:'10110001110',
+  44:'10001101110',45:'10111011000',46:'10111000110',47:'10001110110',
+  48:'11101110110',49:'11010001110',50:'11000101110',51:'11011101000',
+  52:'11011100010',53:'11011101110',54:'11101011000',55:'11101000110',
+  56:'11100010110',57:'11101101000',58:'11101100010',59:'11100011010',
+  60:'11101111010',61:'11001000010',62:'11110001010',63:'10100110000',
+  64:'10100001100',65:'10010110000',66:'10010000110',67:'10000101100',
+  68:'10000100110',69:'10110010000',70:'10110000100',71:'10011010000',
+  72:'10011000010',73:'10000110100',74:'10000110010',75:'11000010010',
+  76:'11001010000',77:'11110111010',78:'11000010100',79:'10001111010',
+  80:'10100111100',81:'10010111100',82:'10010011110',83:'10111100100',
+  84:'10011110100',85:'10011110010',86:'11110100100',87:'11110010100',
+  88:'11110010010',89:'11011011110',90:'11011110110',91:'11110110110',
+  92:'10101111000',93:'10100011110',94:'10001011110',95:'10111101000',
+  96:'10111100010',97:'11110101000',98:'11110100010',99:'10111011110',
+  100:'10111101110',101:'11101011110',102:'11110101110',
+  103:'11010000100',104:'11010010000',105:'11010011110',106:'11000111010'
+};
+
+// Build reverse lookup: pattern → value
+const C128R = {};
+Object.entries(C128).forEach(([v,p]) => C128R[p] = +v);
+
+function decodeC128(bits) {
+  // bits: string of '0'/'1'
+  // Find start pattern (103=B, 104=C, 105=A)
+  let pos = 0;
+  const len = bits.length;
+  // Normalize to module widths by finding narrowest bar
+  // Each symbol is 11 modules wide
+  let values = [];
+  // Try decoding from each position
+  for (let start = 0; start < len - 110; start++) {
+    if (bits[start] !== '1') continue;
+    // Try to extract symbols
+    let p = start;
+    let syms = [];
+    let ok = true;
+    for (let i = 0; i < 30 && p + 11 <= len; i++) {
+      const pat = bits.slice(p, p + 11);
+      if (pat in C128R) {
+        syms.push(C128R[pat]);
+        p += 11;
+      } else {
+        ok = false; break;
+      }
     }
-  } catch { document.getElementById('sessionEl').textContent = '🔴 Server unreachable'; }
+    if (syms.length >= 3 && (syms[0] === 103 || syms[0] === 104 || syms[0] === 105)) {
+      // Valid start — extract data (skip start, checksum, stop)
+      const startCode = syms[0];
+      const data = syms.slice(1, -2); // remove start, check, stop
+      if (startCode === 104) { // Code B
+        let text = '';
+        data.forEach(v => { if (v < 64) text += String.fromCharCode(32 + v); });
+        if (text.length > 0) return text;
+      } else if (startCode === 105) { // Code C (pairs of digits)
+        let text = '';
+        data.forEach(v => { if (v < 100) text += v.toString().padStart(2,'0'); });
+        if (text.length > 0) return text;
+      }
+    }
+  }
+  return null;
 }
 
-/* ═══════════════════════════════════════════════════════
-   CAMERA — uses native BarcodeDetector (Android Chrome)
-   or falls back to ZXing if not available
-═══════════════════════════════════════════════════════ */
+function bitsFromRow(imageData, y, w) {
+  // Convert a scanline to bits by thresholding
+  const d = imageData.data;
+  let bits = '';
+  let prevDark = false;
+  let runLen = 0;
+  // Compute adaptive threshold
+  let sum = 0;
+  for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    sum += (d[i] + d[i+1] + d[i+2]) / 3;
+  }
+  const thresh = sum / w * 0.55;
+  // Build run-length encoded bits
+  const widths = [];
+  let curDark = null;
+  let run = 0;
+  for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    const lum = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
+    const dark = lum < thresh;
+    if (curDark === null) { curDark = dark; run = 1; }
+    else if (dark === curDark) { run++; }
+    else { widths.push({w:run, dark:curDark}); curDark = dark; run = 1; }
+  }
+  if (run > 0) widths.push({w:run, dark:curDark});
+  if (widths.length < 10) return '';
+  // Find narrowest module width
+  const minW = Math.max(1, Math.min(...widths.map(r => r.w)));
+  // Convert to bits
+  bits = widths.map(r => (r.dark ? '1' : '0').repeat(Math.max(1, Math.round(r.w / minW)))).join('');
+  return bits;
+}
+
+function decodeFrame(canvas, video) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext('2d', {willReadFrequently: true});
+  ctx.drawImage(video, 0, 0, w, h);
+  // Scan multiple horizontal rows in the middle 60% of the frame
+  const startY = Math.floor(h * 0.2);
+  const endY   = Math.floor(h * 0.8);
+  const step   = Math.max(1, Math.floor((endY - startY) / 20));
+  const imgData = ctx.getImageData(0, startY, w, endY - startY);
+  // Rebase y to imgData
+  for (let y = 0; y < endY - startY; y += step) {
+    const bits = bitsFromRow(imgData, y, w);
+    if (bits.length < 40) continue;
+    const result = decodeC128(bits);
+    if (result && result.length >= 4) return result;
+  }
+  return null;
+}
+
+/* ─────────────────────────────────────────────────────
+   CAMERA STATE
+───────────────────────────────────────────────────── */
+let camOn = false, mediaStream = null, rafId = null, cooldown = false;
+let lastProduct = null, histArr = [];
+
 async function toggleCam() {
   camOn ? stopCam() : await startCam();
 }
 
 async function startCam() {
-  const btn  = document.getElementById('camBtn');
-  const wrap = document.getElementById('videoWrap');
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting…';
+  const btn = document.getElementById('cb');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Starting…';
   btn.disabled = true;
-
   try {
-    // Request rear camera explicitly
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width:  { ideal: 1280 },
-        height: { ideal: 720 }
-      }
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: {ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
     });
-
-    const video = document.getElementById('video');
-    video.srcObject = stream;
-    await video.play();
-
-    wrap.style.display = 'block';
+    const vid = document.getElementById('vid');
+    vid.srcObject = mediaStream;
+    await vid.play();
+    document.getElementById('vw').style.display = 'block';
     camOn = true;
-    btn.className = 'btn-cam on';
+    btn.className = 'bcb on';
     btn.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Camera';
     btn.disabled = false;
-
-    // Pick scanning engine
+    // Setup canvas
+    const cv = document.getElementById('cv');
+    cv.width  = vid.videoWidth  || 640;
+    cv.height = vid.videoHeight || 480;
+    vid.addEventListener('loadedmetadata', () => {
+      cv.width  = vid.videoWidth;
+      cv.height = vid.videoHeight;
+    });
+    // Try native BarcodeDetector first (Chrome Android)
     if (typeof BarcodeDetector !== 'undefined') {
-      // Native BarcodeDetector — best performance, built into Android Chrome
-      document.getElementById('engineLabel').textContent = '⚡ Native scanner';
-      startNativeScan(video);
+      document.getElementById('eng').textContent = '⚡ Native';
+      startNative(vid);
     } else {
-      // ZXing fallback
-      document.getElementById('engineLabel').textContent = '📦 Loading scanner…';
-      await loadZXing();
-      document.getElementById('engineLabel').textContent = '🔍 ZXing scanner';
-      startZXingScan(video);
+      document.getElementById('eng').textContent = '🔍 Built-in decoder';
+      startCustom(vid, cv);
     }
-
   } catch(e) {
-    btn.className = 'btn-cam';
+    btn.className = 'bcb';
     btn.innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
     btn.disabled = false;
     const msg = e.name === 'NotAllowedError'
-      ? 'Camera permission denied — tap the camera icon in your browser address bar and allow'
-      : e.name === 'NotFoundError'
-      ? 'No camera found on this device'
+      ? 'Allow camera access in your browser settings'
+      : e.name === 'NotFoundError' ? 'No camera found'
       : 'Camera error: ' + e.message;
-    toast('❌ ' + msg, '#dc2626');
+    showToast('❌ ' + msg, '#dc2626');
   }
 }
 
 function stopCam() {
-  // Stop scan loop
-  if (scanLoop) { cancelAnimationFrame(scanLoop); scanLoop = null; }
-  // Stop ZXing if loaded
-  if (window._zxingReader) { try { window._zxingReader.reset(); } catch(e){} window._zxingReader = null; }
-  // Stop stream
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  document.getElementById('video').srcObject = null;
-  document.getElementById('videoWrap').style.display = 'none';
-  document.getElementById('camBtn').className = 'btn-cam';
-  document.getElementById('camBtn').innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
-  document.getElementById('engineLabel').textContent = '';
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  document.getElementById('vid').srcObject = null;
+  document.getElementById('vw').style.display = 'none';
+  document.getElementById('cb').className = 'bcb';
+  document.getElementById('cb').innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
+  document.getElementById('eng').textContent = '';
   camOn = false;
 }
 
-/* ── Native BarcodeDetector (Chrome Android 83+, Edge, Samsung) ── */
-function startNativeScan(video) {
-  const detector = new BarcodeDetector({
-    formats: ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','qr_code','itf','data_matrix']
+/* Native BarcodeDetector */
+function startNative(vid) {
+  const det = new BarcodeDetector({
+    formats: ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','qr_code','itf']
   });
-
   async function tick() {
     if (!camOn) return;
-    if (video.readyState === video.HAVE_ENOUGH_DATA && !debounce) {
+    if (!cooldown && vid.readyState >= 2) {
       try {
-        const barcodes = await detector.detect(video);
-        if (barcodes.length > 0) {
-          const code = barcodes[0].rawValue;
-          debounce = true;
-          await handleScan(code);
-          setTimeout(() => { debounce = false; }, 2000);
-        }
+        const r = await det.detect(vid);
+        if (r.length) { cooldown = true; await doScan(r[0].rawValue); setTimeout(()=>cooldown=false, 2500); }
       } catch(e) {}
     }
-    scanLoop = requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(tick);
   }
-  scanLoop = requestAnimationFrame(tick);
+  rafId = requestAnimationFrame(tick);
 }
 
-/* ── ZXing fallback ── */
-function loadZXing() {
-  return new Promise((resolve, reject) => {
-    if (typeof ZXing !== 'undefined') { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('ZXing failed to load'));
-    document.head.appendChild(s);
-  });
-}
-
-function startZXingScan(video) {
-  const reader = new ZXing.BrowserMultiFormatReader();
-  window._zxingReader = reader;
-
-  // Use decodeFromConstraints — more reliable than decodeFromVideoDevice on mobile
-  reader.decodeFromStream(stream, video, async (result, err) => {
-    if (result && !debounce) {
-      debounce = true;
-      await handleScan(result.getText());
-      setTimeout(() => { debounce = false; }, 2000);
+/* Custom pure-JS decoder */
+function startCustom(vid, cv) {
+  function tick() {
+    if (!camOn) return;
+    if (!cooldown && vid.readyState >= 2) {
+      try {
+        const code = decodeFrame(cv, vid);
+        if (code) { cooldown = true; doScan(code); setTimeout(()=>cooldown=false, 2500); }
+      } catch(e) {}
     }
-  });
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
 }
 
-/* ═══════════════════════════════════════════════════════
-   MANUAL INPUT
-═══════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('manualIn').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); submitManual(); }
-  });
-});
-
-function submitManual() {
-  const inp = document.getElementById('manualIn');
-  const code = inp.value.trim();
-  if (!code) return;
-  inp.value = '';
-  handleScan(code);
-}
-
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────
    SCAN HANDLER
-═══════════════════════════════════════════════════════ */
-async function handleScan(code) {
-  code = code.trim();
+───────────────────────────────────────────────────── */
+async function doScan(code) {
+  code = (code || '').trim();
   if (!code) return;
   try {
-    const res = await fetch('/api/products/barcode/' + encodeURIComponent(code));
+    const res  = await fetch('/api/products/barcode/' + encodeURIComponent(code));
     const data = await res.json();
     if (data.product) {
       lastProduct = data.product;
       showResult(data.product);
       addHist(code, data.product, true);
-      await pushProduct(data.product);
+      await pushToCart(data.product);
     } else {
       lastProduct = null;
       showNotFound(code);
       addHist(code, null, false);
     }
-  } catch(e) {
-    toast('❌ Network error', '#dc2626');
-    addHist(code, null, false);
-  }
+  } catch(e) { showToast('❌ Network error', '#dc2626'); }
 }
 
+function doManual() {
+  const el = document.getElementById('mi');
+  const v = el.value.trim();
+  if (!v) return;
+  el.value = '';
+  doScan(v);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mi').addEventListener('keydown', e => { if (e.key==='Enter') doManual(); });
+});
+
+/* ─────────────────────────────────────────────────────
+   RESULT DISPLAY
+───────────────────────────────────────────────────── */
 function showResult(p) {
-  document.getElementById('rName').textContent  = p.product_name;
-  document.getElementById('rCat').textContent   = p.category + (p.brand ? ' · ' + p.brand : '');
-  document.getElementById('rPrice').textContent = '₱' + parseFloat(p.price).toFixed(2);
-  document.getElementById('rStock').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
-  document.getElementById('sendBtn').disabled   = p.stock <= 0;
-  const c = document.getElementById('resultCard');
-  c.className = 'result-card show';
+  document.getElementById('rn').textContent = p.product_name;
+  document.getElementById('rk').textContent = p.category + (p.brand ? ' · '+p.brand : '');
+  document.getElementById('rp').textContent = '₱' + parseFloat(p.price).toFixed(2);
+  document.getElementById('rs').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
+  document.getElementById('sb').disabled = p.stock <= 0;
+  const c = document.getElementById('rc');
+  c.className = 'rc show';
   c.style.borderColor = p.stock > 0 ? '#bfdbfe' : '#ffcdd2';
 }
-
 function showNotFound(code) {
-  document.getElementById('rName').textContent  = 'Product not found';
-  document.getElementById('rCat').textContent   = 'Barcode: ' + code;
-  document.getElementById('rPrice').textContent = '—';
-  document.getElementById('rStock').textContent = '';
-  document.getElementById('sendBtn').disabled   = true;
-  const c = document.getElementById('resultCard');
-  c.className = 'result-card show';
-  c.style.borderColor = '#ffcdd2';
+  document.getElementById('rn').textContent = 'Not found';
+  document.getElementById('rk').textContent = 'Barcode: ' + code;
+  document.getElementById('rp').textContent = '—';
+  document.getElementById('rs').textContent = '';
+  document.getElementById('sb').disabled = true;
+  const c = document.getElementById('rc');
+  c.className = 'rc show'; c.style.borderColor = '#ffcdd2';
 }
+function clearRes() { document.getElementById('rc').className = 'rc'; lastProduct = null; }
+function sendLast() { if (lastProduct) pushToCart(lastProduct); }
 
-function clearResult() {
-  document.getElementById('resultCard').className = 'result-card';
-  lastProduct = null;
-}
-
-function sendLast() { if (lastProduct) pushProduct(lastProduct); }
-
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────
    PUSH TO POS
-═══════════════════════════════════════════════════════ */
-async function pushProduct(prod) {
+───────────────────────────────────────────────────── */
+async function pushToCart(prod) {
   try {
-    const res = await fetch('/api/scan-session/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product: prod })
+    const r = await fetch('/api/scan-session/push', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({product: prod})
     });
-    const d = await res.json();
+    const d = await r.json();
     if (d.success) {
-      toast('✅ ' + prod.product_name + ' → POS cart', '#059669');
-      const el = document.getElementById('sessionEl');
-      el.className = 's-ok';
-      el.textContent = '🟢 POS session ready';
+      showToast('✅ ' + prod.product_name + ' → POS cart', '#059669');
+      setSes(true);
     } else {
-      toast('⚠️ ' + (d.message || 'Not sent'), '#d97706');
+      showToast('⚠️ ' + (d.message||'Not sent'), '#d97706');
     }
-  } catch { toast('❌ Could not reach server', '#dc2626'); }
+  } catch { showToast('❌ Server unreachable', '#dc2626'); }
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────
+   SESSION
+───────────────────────────────────────────────────── */
+function setSes(ok) {
+  const el = document.getElementById('ses');
+  el.className = ok ? 'sok' : 'sba';
+  el.textContent = ok ? '🟢 POS session ready' : '🔴 Open POS page first';
+}
+async function checkSes() {
+  try {
+    const r = await fetch('/api/scan-session/info');
+    const d = await r.json();
+    setSes(!!d.session_id);
+  } catch { document.getElementById('ses').textContent = '🔴 Server unreachable'; }
+}
+
+/* ─────────────────────────────────────────────────────
    HISTORY
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────── */
 function addHist(code, product, found) {
-  histArr.unshift({ code, product, found, time: new Date().toLocaleTimeString('en-PH') });
+  histArr.unshift({code, product, found, time: new Date().toLocaleTimeString('en-PH')});
   renderHist();
 }
-
 function renderHist() {
-  document.getElementById('histBadge').textContent = histArr.length;
-  const el = document.getElementById('histList');
-  if (!histArr.length) {
-    el.innerHTML = '<div class="text-muted text-center small py-3">No scans yet</div>';
-    return;
-  }
-  el.innerHTML = histArr.map(s => `
-    <div class="h-row">
-      <span>${s.found ? '✅' : '❌'}</span>
+  document.getElementById('hb').textContent = histArr.length;
+  const el = document.getElementById('hl');
+  if (!histArr.length) { el.innerHTML='<div class="text-muted text-center small py-3">No scans yet</div>'; return; }
+  el.innerHTML = histArr.map(s=>`
+    <div class="hr">
+      <span>${s.found?'✅':'❌'}</span>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-          ${s.product ? s.product.product_name : 'Not found: ' + s.code}
+          ${s.product ? s.product.product_name : 'Not found: '+s.code}
         </div>
-        <div style="font-size:.7rem;color:#94a3b8">
-          ${s.time}${s.product ? ' · ₱' + parseFloat(s.product.price).toFixed(2) : ''}
-        </div>
+        <div style="font-size:.7rem;color:#94a3b8">${s.time}${s.product?' · ₱'+parseFloat(s.product.price).toFixed(2):''}</div>
       </div>
-      ${s.product && s.product.stock > 0 ? `
-        <button class="btn-vsms btn-vsms-sm"
-          onclick='pushProduct(${JSON.stringify(s.product)})'>
-          <i class="bi bi-cart-plus"></i>
-        </button>` : ''}
+      ${s.product&&s.product.stock>0?`<button class="btn-vsms btn-vsms-sm" onclick='pushToCart(${JSON.stringify(s.product)})'><i class="bi bi-cart-plus"></i></button>`:''}
     </div>`).join('');
 }
+function clearHist() { histArr=[]; renderHist(); }
 
-function clearHist() { histArr = []; renderHist(); }
-
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────
    TOAST
-═══════════════════════════════════════════════════════ */
-function toast(msg, bg) {
-  const el = document.getElementById('toastEl');
-  el.textContent = msg;
-  el.style.background = bg || '#0f172a';
-  el.style.display = 'block';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.display = 'none'; }, 2800);
+───────────────────────────────────────────────────── */
+function showToast(msg, bg) {
+  const el = document.getElementById('tf');
+  el.textContent = msg; el.style.background = bg||'#0f172a'; el.style.display = 'block';
+  clearTimeout(el._t); el._t = setTimeout(()=>el.style.display='none', 2800);
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────
    INIT
-═══════════════════════════════════════════════════════ */
-checkSession();
-setInterval(checkSession, 30000);
+───────────────────────────────────────────────────── */
+checkSes();
+setInterval(checkSes, 30000);
 </script>
 {% endblock %}
