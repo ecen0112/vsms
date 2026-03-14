@@ -1135,7 +1135,19 @@ function toggleCam() {
     area.style.display = 'block';
     txt.textContent = 'Stop';
     camOpen = true;
-    camScanner = new Html5QrcodeScanner('camReader', {fps:10, qrbox:{width:260,height:130}});
+    const _fmt = Html5QrcodeSupportedFormats;
+    camScanner = new Html5QrcodeScanner('camReader', {
+      fps: 15,
+      qrbox: { width: 300, height: 100 },
+      aspectRatio: 2.5,
+      showTorchButtonIfSupported: true,
+      formatsToSupport: [
+        _fmt.CODE_128, _fmt.CODE_39, _fmt.CODE_93,
+        _fmt.EAN_13,   _fmt.EAN_8,   _fmt.UPC_A, _fmt.UPC_E,
+        _fmt.ITF,      _fmt.QR_CODE
+      ],
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+    });
     camScanner.render(async code => {
       camScanner.pause();
       await lookupBarcode(code);

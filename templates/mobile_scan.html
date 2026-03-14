@@ -53,7 +53,7 @@
     <div style="padding:.8rem">
       <div id="scanReader"></div>
       <p class="text-muted text-center small mt-1" id="scanHint" style="display:none">
-        Point camera at product barcode
+        📊 Align the barcode horizontally inside the red box — keep it centered and steady
       </p>
     </div>
   </div>
@@ -150,8 +150,19 @@ async function toggleScan() {
   const hint=document.getElementById('scanHint');
   if (!scanOn) {
     btn.textContent='Stop Camera'; hint.style.display=''; scanOn=true;
-    scannerInst = new Html5QrcodeScanner('scanReader',
-      {fps:10, qrbox:{width:280,height:140}, aspectRatio:1.5, showTorchButtonIfSupported:true});
+    const _fmt = Html5QrcodeSupportedFormats;
+    scannerInst = new Html5QrcodeScanner('scanReader', {
+      fps: 15,
+      qrbox: { width: 300, height: 100 },
+      aspectRatio: 2.5,
+      showTorchButtonIfSupported: true,
+      formatsToSupport: [
+        _fmt.CODE_128, _fmt.CODE_39, _fmt.CODE_93,
+        _fmt.EAN_13,   _fmt.EAN_8,   _fmt.UPC_A, _fmt.UPC_E,
+        _fmt.ITF,      _fmt.QR_CODE
+      ],
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+    });
     scannerInst.render(async code => {
       scannerInst.pause();
       await handleScan(code);
