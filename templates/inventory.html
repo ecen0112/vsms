@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Inventory — VSMS{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="page-actions-bar">
+    <div class="search-bar-wrap">
+        <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="search-input-wrap">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" name="search" class="form-control search-input"
+                       placeholder="Search products..." value="{{ search }}">
+            </div>
+            <select name="filter" class="form-select filter-select">
+                <option value="" {% if not filter_type %}selected{% endif %}>All Products</option>
+                <option value="low" {% if filter_type == 'low' %}selected{% endif %}>Low Stock</option>
+                <option value="expiring" {% if filter_type == 'expiring' %}selected{% endif %}>Expiring Soon</option>
+            </select>
+            <button type="submit" class="btn-vsms"><i class="bi bi-funnel"></i> Filter</button>
+            {% if search or filter_type %}
+            <a href="{{ url_for('inventory.index') }}" class="btn-vsms-outline"><i class="bi bi-x-circle"></i> Clear</a>
+            {% endif %}
+        </form>
+    </div>
+    {% if session.role in ['admin', 'inventory_manager'] %}
+    <div class="d-flex gap-2">
+        <button class="btn-vsms btn-success-vsms" onclick="openStockInModal()">
+            <i class="bi bi-box-arrow-in-down me-1"></i> Stock In
+        </button>
+        <button class="btn-vsms btn-warning-vsms" onclick="openAdjustModal()">
+            <i class="bi bi-sliders me-1"></i> Adjust Stock
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Alert Banners -->
+{% if expired_batches %}
+<div class="alert-banner danger-banner">
+    <i class="bi bi-exclamation-octagon-fill me-2"></i>
+    <strong>{{ expired_batches | length }} expired batch(es)</strong> require immediate attention!
+    <button class="btn-banner" onclick="document.getElementById('expiredTab').click()">View Expired</button>
+</div>
+{% endif %}
+{% if expiring_batches %}
+<div class="alert-banner warning-banner">
+    <i class="bi bi-clock-history me-2"></i>
+    <strong>{{ expiring_batches | length }} batch(es)</strong> expiring within 30 days.
+    <button class="btn-banner" onclick="document.getElementById('expiringTab').click()">View Expiring</button>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<ul class="nav nav-tabs vsms-tabs" id="invTabs">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#allProducts">
+            <i class="bi bi-grid me-1"></i>All Products
+            <span class="tab-count">{{ products | length }}</span>
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="expiringTab" data-bs-toggle="tab" data-bs-target="#expiringBatches">
+            <i class="bi bi-clock-history me-1"></i>Expiring Soon
+            <span class="tab-count warning">{{ expiring_batches | length }}</span>
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="expiredTab" data-bs-toggle="tab" data-bs-target="#expiredBatches">
+            <i class="bi bi-x-octagon me-1"></i>Expired
+            <span class="tab-count danger">{{ expired_batches | length }}</span>
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#activityLog">
+            <i class="bi bi-journal-text me-1"></i>Activity Log
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- All Products Tab -->
+    <div class="tab-pane fade show active" id="allProducts">
+        <div class="table-card no-top-radius">
+            <div class="table-responsive">
+                <table class="vsms-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Barcode</th>
+                            <th>Current Stock</th>
+                            <th>Min. Level</th>
+                            <th>Unit</th>
+                            <th>Batches</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in products %}
+                        <tr>
+                            <td><strong>{{ p.product_name }}</strong><br><small class="text-muted">{{ p.brand or '' }}</small></td>
+                            <td><span class="cat-badge">{{ p.category }}</span></td>
+                            <td><code class="barcode-text">{{ p.barcode }}</code></td>
+                            <td>
+                                <div class="stock-display">
+                                    <span class="stock-number {{ 'zero' if p.stock == 0 else ('low' if p.stock <= p.low_stock_threshold else 'ok') }}">{{ p.stock }}</span>
+                                    <div class="stock-bar-wrap">
+                                        {% set pct = [((p.stock / (p.low_stock_threshold * 3)) * 100), 100] | min %}
+                                        <div class="stock-bar {{ 'bar-danger' if p.stock == 0 else ('bar-warning' if p.stock <= p.low_stock_threshold else 'bar-success') }}" style="width:{{ pct }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-muted">{{ p.low_stock_threshold }}</td>
+                            <td>{{ p.unit }}</td>
+                            <td>
+                                <span class="batch-count">{{ p.batch_count }} batch(es)</span>
+                            </td>
+                            <td>
+                                {% if p.stock == 0 %}
+                                    <span class="status-badge status-danger">Out of Stock</span>
+                                {% elif p.stock <= p.low_stock_threshold %}
+                                    <span class="status-badge status-warning">Low Stock</span>
+                                {% else %}
+                                    <span class="status-badge status-success">In Stock</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="action-btns">
+                                    <button class="btn-icon btn-view" title="Product History"
+                                            onclick="openHistory({{ p.product_id }}, '{{ p.product_name | e }}')">
+                                        <i class="bi bi-clock-history"></i>
+                                    </button>
+                                    {% if session.role in ['admin', 'inventory_manager'] %}
+                                    <button class="btn-icon btn-success-icon" title="Stock In"
+                                            onclick="prefillStockIn({{ p.product_id }}, '{{ p.product_name | e }}')">
+                                        <i class="bi bi-box-arrow-in-down"></i>
+                                    </button>
+                                    <button class="btn-icon btn-edit" title="Adjust"
+                                            onclick="prefillAdjust({{ p.product_id }}, '{{ p.product_name | e }}', {{ p.stock }})">
+                                        <i class="bi bi-sliders"></i>
+                                    </button>
+                                    <button class="btn-icon btn-delete" title="Record Damage/Return"
+                                            onclick="openDeduction({{ p.product_id }}, '{{ p.product_name | e }}', {{ p.stock }})">
+                                        <i class="bi bi-dash-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="9" class="text-center py-5">
+                            <div class="empty-state"><i class="bi bi-clipboard2-data"></i><p>No products found</p></div>
+                        </td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiring Batches -->
+    <div class="tab-pane fade" id="expiringBatches">
+        <div class="table-card no-top-radius">
+            {% if expiring_batches %}
+            <div class="table-responsive">
+                <table class="vsms-table">
+                    <thead>
+                        <tr><th>Product</th><th>Batch Number</th><th>Expiration Date</th><th>Days Left</th><th>Quantity</th><th>Supplier</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in expiring_batches %}
+                        {% set days_left = ((b.expiration_date | string | to_date) - today).days if b.expiration_date else 999 %}
+                        <tr>
+                            <td><strong>{{ b.product_name }}</strong></td>
+                            <td><code>{{ b.batch_number }}</code></td>
+                            <td class="text-warning fw-600">{{ b.expiration_date }}</td>
+                            <td>
+                                <span class="days-badge {{ 'urgent' if days_left <= 7 else 'warn' }}">
+                                    {{ b.expiration_date }} 
+                                </span>
+                            </td>
+                            <td>{{ b.remaining_quantity }} {{ b.unit }}</td>
+                            <td>{{ b.supplier_name or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state success-empty py-5">
+                <i class="bi bi-check-circle-fill"></i>
+                <p>No products expiring within 30 days!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Expired Batches -->
+    <div class="tab-pane fade" id="expiredBatches">
+        <div class="table-card no-top-radius">
+            {% if expired_batches %}
+            <div class="table-responsive">
+                <table class="vsms-table">
+                    <thead>
+                        <tr><th>Product</th><th>Batch Number</th><th>Expired On</th><th>Remaining Qty</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in expired_batches %}
+                        <tr class="expired-row">
+                            <td><strong>{{ b.product_name }}</strong></td>
+                            <td><code>{{ b.batch_number }}</code></td>
+                            <td class="text-danger fw-600">{{ b.expiration_date }}</td>
+                            <td><span class="stock-badge stock-zero">{{ b.remaining_quantity }} {{ b.unit }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state success-empty py-5">
+                <i class="bi bi-check-circle-fill"></i>
+                <p>No expired batches!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="tab-pane fade" id="activityLog">
+        <div class="table-card no-top-radius">
+            <div class="table-responsive">
+                <table class="vsms-table">
+                    <thead>
+                        <tr><th>Date</th><th>Product</th><th>Action</th><th>Change</th><th>Before</th><th>After</th><th>By</th><th>Notes</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                        <tr>
+                            <td class="text-muted small">{{ log.created_at[:16] }}</td>
+                            <td><strong>{{ log.product_name }}</strong></td>
+                            <td>
+                                <span class="action-badge {{ log.action }}">
+                                    {{ log.action | replace('_', ' ') | title }}
+                                </span>
+                            </td>
+                            <td class="{{ 'text-success fw-600' if log.quantity_change > 0 else 'text-danger fw-600' }}">
+                                {{ '+' if log.quantity_change > 0 else '' }}{{ log.quantity_change }}
+                            </td>
+                            <td class="text-muted">{{ log.quantity_before }}</td>
+                            <td class="fw-600">{{ log.quantity_after }}</td>
+                            <td>{{ log.user_name }}</td>
+                            <td class="text-muted small">{{ log.notes or '—' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="text-center py-4">
+                            <div class="empty-state"><i class="bi bi-journal"></i><p>No activity yet</p></div>
+                        </td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock In Modal -->
+{% if session.role in ['admin', 'inventory_manager'] %}
+<div class="modal fade" id="stockInModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content vsms-modal">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-box-arrow-in-down me-2 text-success"></i>Stock In</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('inventory.stock_in') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-500">Product *</label>
+                        <select name="product_id" id="stockin-product" class="form-select" required>
+                            <option value="">Select Product</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}">{{ p.product_name }} (Current: {{ p.stock }} {{ p.unit }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-500">Quantity *</label>
+                            <input type="number" name="quantity" class="form-control" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-500">Batch Number</label>
+                            <input type="text" name="batch_number" class="form-control" placeholder="Auto-generated if empty">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-500">Expiration Date</label>
+                            <input type="date" name="expiration_date" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-500">Purchase Price (₱)</label>
+                            <input type="number" name="purchase_price" step="0.01" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-500">Supplier</label>
+                            <select name="supplier_id" class="form-select">
+                                <option value="">Select Supplier</option>
+                                {% for s in suppliers %}
+                                <option value="{{ s.supplier_id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-500">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Delivery reference, PO number, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-vsms btn-success-vsms"><i class="bi bi-check-circle me-1"></i>Add Stock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Adjust Modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content vsms-modal">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-sliders me-2 text-warning"></i>Stock Adjustment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('inventory.stock_adjustment') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-500">Product *</label>
+                        <select name="product_id" id="adjust-product" class="form-select" required>
+                            <option value="">Select Product</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" data-stock="{{ p.stock }}">{{ p.product_name }} (Current: {{ p.stock }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="adjust-current-stock mb-3" id="adjust-current-display" style="display:none">
+                        <div class="info-box">
+                            <span>Current Stock:</span>
+                            <strong id="adjust-current-val">—</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-500">New Quantity *</label>
+                        <input type="number" name="new_quantity" id="adjust-qty" class="form-control" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-500">Reason / Notes *</label>
+                        <textarea name="notes" class="form-control" rows="2" required placeholder="e.g. Physical count, damage, shrinkage..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-vsms btn-warning-vsms"><i class="bi bi-check-circle me-1"></i>Apply Adjustment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openStockInModal() { new bootstrap.Modal(document.getElementById('stockInModal')).show(); }
+function openAdjustModal() { new bootstrap.Modal(document.getElementById('adjustModal')).show(); }
+
+function prefillStockIn(pid, name) {
+    document.getElementById('stockin-product').value = pid;
+    openStockInModal();
+}
+function prefillAdjust(pid, name, stock) {
+    document.getElementById('adjust-product').value = pid;
+    document.getElementById('adjust-current-val').textContent = stock;
+    document.getElementById('adjust-current-display').style.display = 'block';
+    document.getElementById('adjust-qty').value = stock;
+    openAdjustModal();
+}
+
+document.getElementById('adjust-product')?.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    const stock = opt.dataset.stock;
+    if (stock !== undefined) {
+        document.getElementById('adjust-current-val').textContent = stock;
+        document.getElementById('adjust-current-display').style.display = 'block';
+        document.getElementById('adjust-qty').value = stock;
+    }
+});
+</script>
+
+<!-- Manual Deduction Modal -->
+<div class="modal fade" id="deductModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="bi bi-dash-circle me-2 text-danger"></i>Record Stock Deduction</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 p-2" style="background:#f8fdf8;border-radius:9px;border:1.5px solid #eff6ff">
+          <div class="fw-700" id="deduct-prod-name">—</div>
+          <div class="text-muted small">Current stock: <strong id="deduct-stock">—</strong></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600 small">Reason / Type *</label>
+          <select id="deduct-type" class="form-select" style="border:1.5px solid #bfdbfe;border-radius:9px">
+            <option value="damaged">🔴 Damaged / Spoiled</option>
+            <option value="returned">🔵 Returned to Supplier</option>
+            <option value="expired_removal">⚠️ Expired — Removed from Stock</option>
+            <option value="adjustment">⚙️ Manual Adjustment</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600 small">Quantity to Deduct *</label>
+          <input type="number" id="deduct-qty" class="form-control" min="1" style="border:1.5px solid #bfdbfe;border-radius:9px;font-weight:700">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-600 small">Notes / Reason *</label>
+          <textarea id="deduct-notes" class="form-control" rows="2" style="border:1.5px solid #bfdbfe;border-radius:9px"
+            placeholder="e.g. 5 bottles cracked during delivery, returned by customer…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-vsms" style="background:linear-gradient(135deg,#c62828,#e53935)" onclick="submitDeduction()">
+          <i class="bi bi-dash-circle me-1"></i>Record Deduction
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Product History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700" id="historyModalTitle"><i class="bi bi-clock-history me-2 text-info"></i>Product Movement History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyBody">
+        <div class="text-center py-4"><div class="spinner-border text-success"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let _deductPid = null;
+
+function openDeduction(pid, name, stock) {
+  _deductPid = pid;
+  document.getElementById('deduct-prod-name').textContent = name;
+  document.getElementById('deduct-stock').textContent = stock;
+  document.getElementById('deduct-qty').value = 1;
+  document.getElementById('deduct-qty').max  = stock;
+  document.getElementById('deduct-notes').value = '';
+  new bootstrap.Modal(document.getElementById('deductModal')).show();
+}
+
+async function submitDeduction() {
+  const qty   = parseInt(document.getElementById('deduct-qty').value)||0;
+  const notes = document.getElementById('deduct-notes').value.trim();
+  const type  = document.getElementById('deduct-type').value;
+  if (!qty || qty < 1)  { alert('Enter a valid quantity'); return; }
+  if (!notes)           { alert('Please enter a reason/notes'); return; }
+  const res  = await fetch('/api/inventory/manual-deduction', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ product_id: _deductPid, quantity: qty, move_type: type, notes })
+  });
+  const data = await res.json();
+  if (data.success) {
+    bootstrap.Modal.getInstance(document.getElementById('deductModal'))?.hide();
+    setTimeout(() => location.reload(), 600);
+  } else {
+    alert('Error: ' + (data.message||'Unknown error'));
+  }
+}
+
+async function openHistory(pid, name) {
+  document.getElementById('historyModalTitle').innerHTML =
+    `<i class="bi bi-clock-history me-2 text-info"></i>${name} — History`;
+  document.getElementById('historyBody').innerHTML =
+    '<div class="text-center py-4"><div class="spinner-border text-success"></div></div>';
+  new bootstrap.Modal(document.getElementById('historyModal')).show();
+
+  const res  = await fetch(`/api/products/${pid}/movements`);
+  const data = await res.json();
+
+  const icons  = {sale:'🛒',stock_in:'📦',adjustment:'⚙️',damaged:'🔴',
+                  returned:'🔵',expired_removal:'⚠️',transfer:'↔️',initial:'🆕'};
+  const colors = {sale:'text-primary',stock_in:'text-success',adjustment:'text-warning',
+                  damaged:'text-danger',returned:'text-info',expired_removal:'text-danger',initial:'text-success'};
+
+  const all = [
+    ...data.movements.map(m=>({...m,src:'mv'})),
+    ...data.logs.map(l=>({...l,move_type:l.action,quantity:l.quantity_change,src:'log'}))
+  ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+  if (!all.length) {
+    document.getElementById('historyBody').innerHTML =
+      '<div class="empty-state py-4"><i class="bi bi-clock-history"></i><p>No movement history yet</p></div>';
+    return;
+  }
+
+  let html = `<div class="mb-3 p-2" style="background:#f8fdf8;border-radius:10px;border:1.5px solid #eff6ff;display:flex;gap:2rem;flex-wrap:wrap;font-size:.82rem">
+    <div><div class="text-muted small">Current Stock</div><strong class="text-success" style="font-size:1.1rem">${data.product.stock} ${data.product.unit}</strong></div>
+    <div><div class="text-muted small">Total Records</div><strong>${all.length}</strong></div>
+    <div><div class="text-muted small">Category</div><strong>${data.product.category}</strong></div>
+  </div>
+  <div style="max-height:440px;overflow-y:auto">
+  <table class="vsms-table" style="font-size:.79rem">
+    <thead><tr><th>Date/Time</th><th>Type</th><th>Qty Change</th><th>Before</th><th>After</th><th>Reference</th><th>Staff</th><th>Notes</th></tr></thead>
+    <tbody>`;
+  all.forEach(m => {
+    const q    = +(m.quantity||0);
+    const ic   = icons[m.move_type]||'📋';
+    const cl   = colors[m.move_type]||'';
+    const sign = q > 0 ? '+' : '';
+    html += `<tr>
+      <td class="text-muted">${(m.created_at||'').substring(0,16)}</td>
+      <td><span class="${cl} fw-700">${ic} ${(m.move_type||'').replace(/_/g,' ')}</span></td>
+      <td><span class="fw-800 ${q>=0?'text-success':'text-danger'}">${sign}${q}</span></td>
+      <td class="text-muted">${m.quantity_before??'—'}</td>
+      <td class="fw-700">${m.quantity_after??'—'}</td>
+      <td><span class="txn-code" style="font-size:.67rem">${m.reference_id||m.reference_type||'—'}</span></td>
+      <td class="small">${m.user_name||'—'}</td>
+      <td class="text-muted small">${m.notes||'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('historyBody').innerHTML = html;
+}
+</script>
+{% endblock %}

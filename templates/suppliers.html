@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Suppliers — VSMS{% endblock %}
+{% block page_title %}Supplier Management{% endblock %}
+{% block content %}
+<div class="page-actions-bar">
+    <div></div>
+    {% if session.role in ['admin', 'inventory_manager'] %}
+    <button class="btn-vsms btn-add" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+        <i class="bi bi-plus-circle-fill me-1"></i> Add Supplier
+    </button>
+    {% endif %}
+</div>
+<div class="row g-4">
+    {% for s in suppliers %}
+    <div class="col-md-4">
+        <div class="supplier-card">
+            <div class="supplier-avatar">{{ s.name[0] | upper }}</div>
+            <div class="supplier-info">
+                <h5 class="supplier-name">{{ s.name }}</h5>
+                <p class="supplier-meta"><i class="bi bi-person me-1"></i>{{ s.contact_person or 'N/A' }}</p>
+                <p class="supplier-meta"><i class="bi bi-telephone me-1"></i>{{ s.phone or 'N/A' }}</p>
+                <p class="supplier-meta"><i class="bi bi-envelope me-1"></i>{{ s.email or 'N/A' }}</p>
+                <p class="supplier-meta"><i class="bi bi-geo-alt me-1"></i>{{ s.address or 'N/A' }}</p>
+                <div class="supplier-stats">
+                    <span class="badge bg-success-soft"><i class="bi bi-box-seam me-1"></i>{{ s.product_count }} Products</span>
+                </div>
+            </div>
+            {% if session.role in ['admin', 'inventory_manager'] %}
+            <div class="supplier-actions">
+                <button class="btn-icon btn-edit" onclick="editSupplier({{ s | todict | tojson | e }})" title="Edit"><i class="bi bi-pencil"></i></button>
+                {% if session.role == 'admin' %}
+                <form method="POST" action="{{ url_for('suppliers.delete', sid=s.supplier_id) }}" class="d-inline" onsubmit="return confirm('Remove this supplier?')">
+                    <button type="submit" class="btn-icon btn-delete" title="Delete"><i class="bi bi-trash3"></i></button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="empty-state py-5"><i class="bi bi-truck"></i><p>No suppliers added yet</p></div></div>
+    {% endfor %}
+</div>
+
+{% if session.role in ['admin', 'inventory_manager'] %}
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content vsms-modal">
+        <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Add Supplier</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="POST" action="{{ url_for('suppliers.add') }}">
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-12"><label class="form-label fw-500">Company Name *</label><input type="text" name="name" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Contact Person</label><input type="text" name="contact_person" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Phone</label><input type="text" name="phone" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Email</label><input type="email" name="email" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Address</label><input type="text" name="address" class="form-control"></div>
+                    <div class="col-12"><label class="form-label fw-500">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn-vsms">Add Supplier</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+<div class="modal fade" id="editSupplierModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content vsms-modal">
+        <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Supplier</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="POST" id="editSupplierForm">
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-12"><label class="form-label fw-500">Company Name *</label><input type="text" name="name" id="es-name" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Contact Person</label><input type="text" name="contact_person" id="es-contact" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Phone</label><input type="text" name="phone" id="es-phone" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Email</label><input type="email" name="email" id="es-email" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label fw-500">Address</label><input type="text" name="address" id="es-address" class="form-control"></div>
+                    <div class="col-12"><label class="form-label fw-500">Notes</label><textarea name="notes" id="es-notes" class="form-control" rows="2"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn-vsms">Save Changes</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function editSupplier(s) {
+    document.getElementById('es-name').value = s.name;
+    document.getElementById('es-contact').value = s.contact_person || '';
+    document.getElementById('es-phone').value = s.phone || '';
+    document.getElementById('es-email').value = s.email || '';
+    document.getElementById('es-address').value = s.address || '';
+    document.getElementById('es-notes').value = s.notes || '';
+    document.getElementById('editSupplierForm').action = `/suppliers/${s.supplier_id}/edit`;
+    new bootstrap.Modal(document.getElementById('editSupplierModal')).show();
+}
+</script>
+{% endblock %}

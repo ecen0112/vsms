@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}Transactions — VSMS{% endblock %}
+{% block page_title %}Transaction History{% endblock %}
+
+{% block content %}
+<!-- Summary stats bar -->
+<div class="stats-row mb-3" style="grid-template-columns:repeat(5,1fr)">
+  <div class="stat-card stat-success" style="padding:.85rem 1rem">
+    <div class="stat-icon" style="width:34px;height:34px;font-size:.95rem"><i class="bi bi-receipt"></i></div>
+    <div class="stat-body"><div class="stat-value" style="font-size:1.3rem">{{ total }}</div><div class="stat-label">Found</div></div>
+  </div>
+  <div class="stat-card stat-primary" style="padding:.85rem 1rem">
+    <div class="stat-icon" style="width:34px;height:34px;font-size:.95rem"><i class="bi bi-graph-up"></i></div>
+    <div class="stat-body"><div class="stat-value" style="font-size:1.3rem">₱{{ "%.0f"|format(stats.rev) }}</div><div class="stat-label">Revenue (filtered)</div></div>
+  </div>
+  <div class="stat-card stat-info" style="padding:.85rem 1rem">
+    <div class="stat-icon" style="width:34px;height:34px;font-size:.95rem"><i class="bi bi-check2-circle"></i></div>
+    <div class="stat-body"><div class="stat-value" style="font-size:1.3rem">{{ stats.cnt }}</div><div class="stat-label">Completed</div></div>
+  </div>
+  <div class="stat-card stat-warning" style="padding:.85rem 1rem">
+    <div class="stat-icon" style="width:34px;height:34px;font-size:.95rem"><i class="bi bi-cash-coin"></i></div>
+    <div class="stat-body">
+      <div class="stat-value" style="font-size:1.3rem">{{ stats.cnt and "%.0f"|format(stats.rev/stats.cnt) or 0 }}</div>
+      <div class="stat-label">Avg. per Sale</div>
+    </div>
+  </div>
+  <div class="stat-card" style="padding:.85rem 1rem;border-color:#eff6ff">
+    <div class="stat-body pt-1">
+      <a href="{{ url_for('pos.index') }}" class="btn-vsms w-100"><i class="bi bi-cart4 me-1"></i>New Sale</a>
+    </div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="table-card mb-3" style="padding:.85rem 1.1rem">
+  <form method="GET" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-600 small mb-1">Search</label>
+      <div style="position:relative">
+        <i class="bi bi-search" style="position:absolute;left:.72rem;top:50%;transform:translateY(-50%);color:#3b82f6;pointer-events:none"></i>
+        <input type="text" name="search" class="form-control" style="padding-left:2.3rem;border:1.5px solid #e2e8f0;border-radius:9px" placeholder="Code or customer…" value="{{ search }}">
+      </div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-600 small mb-1">From</label>
+      <input type="date" name="date_from" class="form-control" style="border:1.5px solid #bfdbfe;border-radius:9px" value="{{ date_from }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-600 small mb-1">To</label>
+      <input type="date" name="date_to" class="form-control" style="border:1.5px solid #bfdbfe;border-radius:9px" value="{{ date_to }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-600 small mb-1">Status</label>
+      <select name="status" class="form-select" style="border:1.5px solid #bfdbfe;border-radius:9px;font-size:.86rem">
+        <option value="">All Status</option>
+        <option value="completed" {% if status=='completed' %}selected{% endif %}>Completed</option>
+        <option value="voided" {% if status=='voided' %}selected{% endif %}>Voided</option>
+      </select>
+    </div>
+    <div class="col-md-1">
+      <label class="form-label fw-600 small mb-1">Payment</label>
+      <select name="payment" class="form-select" style="border:1.5px solid #bfdbfe;border-radius:9px;font-size:.86rem">
+        <option value="">All</option>
+        <option value="cash" {% if payment=='cash' %}selected{% endif %}>Cash</option>
+        <option value="gcash" {% if payment=='gcash' %}selected{% endif %}>GCash</option>
+        <option value="maya" {% if payment=='maya' %}selected{% endif %}>Maya</option>
+        <option value="visa" {% if payment=='visa' %}selected{% endif %}>Visa</option>
+        <option value="mastercard" {% if payment=='mastercard' %}selected{% endif %}>MC</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button type="submit" class="btn-vsms flex-1"><i class="bi bi-funnel me-1"></i>Filter</button>
+      {% if search or date_from or date_to or status or payment %}
+      <a href="{{ url_for('pos.transactions') }}" class="btn-vsms-outline"><i class="bi bi-x-lg"></i></a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Table -->
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="vsms-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Customer</th>
+          <th>Cashier</th>
+          <th>Items</th>
+          <th>Subtotal</th>
+          <th>Disc.</th>
+          <th>VAT</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Date / Time</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in txns %}
+        <tr class="{{ 'table-danger' if t.status == 'voided' else '' }}" id="txn-row-{{ t.transaction_id }}">
+          <td><span class="txn-code">{{ t.transaction_code }}</span></td>
+          <td>
+            <div class="fw-600 small">{{ t.customer_name }}</div>
+            {% if t.notes %}<div class="text-muted" style="font-size:.7rem">{{ t.notes[:35] }}{{ '…' if t.notes|length > 35 else '' }}</div>{% endif %}
+          </td>
+          <td class="small">{{ t.cashier_name }}</td>
+          <td>
+            <span class="badge bg-light text-dark border" style="font-size:.72rem" id="item-count-{{ t.transaction_id }}">—</span>
+          </td>
+          <td class="small">₱{{ "%.2f"|format(t.subtotal) }}</td>
+          <td>
+            {% if t.discount_amount > 0 %}
+            <span class="text-danger small fw-600">-₱{{ "%.2f"|format(t.discount_amount) }}</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td class="small text-muted">₱{{ "%.2f"|format(t.tax_amount) }}</td>
+          <td><span class="fw-800 {{ 'text-muted' if t.status == 'voided' else 'text-success' }}">₱{{ "%.2f"|format(t.total_amount) }}</span></td>
+          <td>
+            <span class="payment-badge {{ t.payment_method }}">{{ t.payment_method | title }}</span>
+          </td>
+          <td>
+            {% if t.status == 'voided' %}
+              <span class="status-badge status-danger">Voided</span>
+            {% else %}
+              <span class="status-badge status-success">Completed</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small" style="white-space:nowrap">{{ t.created_at[:16] }}</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn-icon btn-view" onclick="viewTxn({{ t.transaction_id }})" title="View detail">
+                <i class="bi bi-eye"></i>
+              </button>
+              <button class="btn-icon btn-view" onclick="reprintTxn({{ t.transaction_id }})" title="Reprint receipt" style="background:#eff6ff;color:#1e3a5f">
+                <i class="bi bi-printer"></i>
+              </button>
+              {% if session.role in ['admin','inventory_manager'] and t.status != 'voided' %}
+              <button class="btn-icon btn-delete" onclick="voidTxn({{ t.transaction_id }}, '{{ t.transaction_code }}')" title="Void transaction">
+                <i class="bi bi-x-circle"></i>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12" class="text-center py-5">
+          <div class="empty-state"><i class="bi bi-receipt"></i><p>No transactions found</p></div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="pagination-wrap">
+    <nav><ul class="pagination">
+      {% if page > 1 %}
+      <li class="page-item"><a class="page-link" href="?page={{ page-1 }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&payment={{ payment }}"><i class="bi bi-chevron-left"></i></a></li>
+      {% endif %}
+      {% for p in range([1,page-2]|max, [total_pages+1,page+3]|min) %}
+      <li class="page-item {% if p==page %}active{% endif %}">
+        <a class="page-link" href="?page={{ p }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&payment={{ payment }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+      {% if page < total_pages %}
+      <li class="page-item"><a class="page-link" href="?page={{ page+1 }}&search={{ search }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&payment={{ payment }}"><i class="bi bi-chevron-right"></i></a></li>
+      {% endif %}
+    </ul></nav>
+    <div class="text-muted small">Page {{ page }} of {{ total_pages }} · {{ total }} records</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Detail modal -->
+<div class="modal fade" id="txnModal" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content vsms-modal">
+    <div class="modal-header">
+      <h5 class="modal-title fw-700"><i class="bi bi-receipt-cutoff me-2 text-success"></i>Transaction Detail</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body" id="txnDetail">
+      <div class="text-center py-4"><div class="spinner-border text-success"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-vsms-outline" onclick="reprintFromModal()"><i class="bi bi-printer me-1"></i>Reprint</button>
+      <button class="btn-vsms-outline" data-bs-dismiss="modal">Close</button>
+    </div>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _curTxn = null;
+
+// Load item counts after render
+document.querySelectorAll('[id^="item-count-"]').forEach(el => {
+  const tid = el.id.replace('item-count-','');
+  fetch(`/api/pos/transaction/${tid}`)
+    .then(r=>r.json()).then(d=>{
+      if(d.items) el.textContent = d.items.length + ' item'+(d.items.length!==1?'s':'');
+    }).catch(()=>{});
+});
+
+async function viewTxn(tid) {
+  const modal = new bootstrap.Modal(document.getElementById('txnModal'));
+  document.getElementById('txnDetail').innerHTML = '<div class="text-center py-4"><div class="spinner-border text-success"></div></div>';
+  modal.show();
+  const res  = await fetch(`/api/pos/transaction/${tid}`);
+  const data = await res.json();
+  _curTxn = data;
+  const t = data.transaction;
+  const isVoided = t.status === 'voided';
+  let html = `
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div style="background:#f8fdf8;border-radius:10px;border:1.5px solid #eff6ff;padding:.9rem">
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Transaction Code</span><span class="txn-code">${t.transaction_code}</span></div>
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Customer</span><strong>${t.customer_name}</strong></div>
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Cashier</span><span>${t.cashier_name}</span></div>
+        <div class="d-flex justify-content-between"><span class="text-muted small">Date / Time</span><span>${t.created_at?.substring(0,16)||'—'}</span></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div style="background:#f8fdf8;border-radius:10px;border:1.5px solid #eff6ff;padding:.9rem">
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Payment</span><span class="payment-badge ${t.payment_method}">${t.payment_method}</span></div>
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Status</span><span class="status-badge ${isVoided?'status-danger':'status-success'}">${isVoided?'Voided':'Completed'}</span></div>
+        <div class="d-flex justify-content-between mb-1"><span class="text-muted small">Amount Paid</span><span class="fw-700">₱${t.amount_paid?.toFixed(2)||'0.00'}</span></div>
+        <div class="d-flex justify-content-between"><span class="text-muted small">Change Given</span><span class="fw-700 text-success">₱${t.change_amount?.toFixed(2)||'0.00'}</span></div>
+      </div>
+    </div>
+  </div>
+  <table class="vsms-table mb-3">
+    <thead><tr><th>Product</th><th class="text-center">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
+    <tbody>`;
+  data.items.forEach(it=>{
+    html+=`<tr>
+      <td><strong style="font-size:.85rem">${it.product_name}</strong></td>
+      <td class="text-center">${it.quantity}</td>
+      <td class="text-end">₱${it.unit_price.toFixed(2)}</td>
+      <td class="text-end fw-700">₱${it.total_price.toFixed(2)}</td>
+    </tr>`;
+  });
+  html+=`</tbody></table>
+  <div class="text-end">
+    <div class="d-flex justify-content-between mb-1 small text-muted"><span>Subtotal</span><span>₱${t.subtotal.toFixed(2)}</span></div>
+    ${t.discount_amount>0?`<div class="d-flex justify-content-between mb-1 small text-danger"><span>Discount (${t.discount_percent}%)</span><span>-₱${t.discount_amount.toFixed(2)}</span></div>`:''}
+    <div class="d-flex justify-content-between mb-1 small text-muted"><span>VAT (12%)</span><span>₱${t.tax_amount?.toFixed(2)||'0.00'}</span></div>
+    <div class="d-flex justify-content-between fw-800" style="font-size:1.1rem;border-top:1.5px solid #bfdbfe;padding-top:.4rem">
+      <span>TOTAL</span><span class="text-success">₱${t.total_amount.toFixed(2)}</span>
+    </div>
+  </div>
+  ${t.notes?`<div class="mt-2 p-2" style="background:#fff8e1;border-radius:8px;font-size:.8rem;border:1px solid #ffe0b2"><i class="bi bi-sticky me-1 text-warning"></i>${t.notes}</div>`:''}`;
+  document.getElementById('txnDetail').innerHTML = html;
+}
+
+async function voidTxn(tid, code) {
+  if (!confirm(`Void transaction ${code}?\n\nThis will reverse all stock deductions. This action cannot be undone.`)) return;
+  const res  = await fetch(`/api/pos/void/${tid}`, {method:'POST'});
+  const data = await res.json();
+  if (data.success) {
+    const row = document.getElementById(`txn-row-${tid}`);
+    if (row) {
+      row.classList.add('table-danger');
+      row.querySelector('.status-badge').outerHTML = '<span class="status-badge status-danger">Voided</span>';
+      const vBtn = row.querySelector('[onclick^="voidTxn"]');
+      if (vBtn) vBtn.remove();
+    }
+    showToast('Transaction voided and stock restored','s');
+  } else {
+    showToast(data.message||'Void failed','d');
+  }
+}
+
+async function reprintTxn(tid) {
+  const res  = await fetch(`/api/pos/transaction/${tid}`);
+  const data = await res.json();
+  printFromData(data);
+}
+
+function reprintFromModal() {
+  if (_curTxn) printFromData(_curTxn);
+}
+
+function printFromData(data) {
+  const t = data.transaction;
+  const its = data.items;
+  let html = `<div style="font-family:'Courier New',monospace;max-width:300px;margin:0 auto;font-size:12px">
+    <div style="text-align:center"><p style="font-weight:800;font-size:13px;margin:2px 0">VetSupply Management</p>
+    <p style="font-size:10px;color:#777;margin:1px 0">Veterinary Supply Store</p>
+    <p style="font-size:10px;color:#999;margin:1px 0">${new Date(t.created_at).toLocaleString('en-PH')}</p></div>
+    <hr style="border:none;border-top:1px dashed #ccc;margin:4px 0">
+    <p style="font-size:11px;margin:2px 0">TXN: <strong>${t.transaction_code}</strong></p>
+    <p style="font-size:11px;margin:2px 0">Customer: <strong>${t.customer_name}</strong></p>
+    <p style="font-size:11px;margin:2px 0">Cashier: ${t.cashier_name}</p>
+    <hr style="border:none;border-top:1px dashed #ccc;margin:4px 0">
+    <table style="width:100%;border-collapse:collapse;font-size:11px">`;
+  its.forEach(i=>{
+    html+=`<tr><td>${i.product_name}<br><span style="font-size:10px;color:#888">₱${i.unit_price.toFixed(2)} × ${i.quantity}</span></td>
+           <td style="text-align:right;font-weight:700">₱${i.total_price.toFixed(2)}</td></tr>`;
+  });
+  html+=`</table><hr style="border:none;border-top:1px dashed #ccc;margin:4px 0">
+    <div style="display:flex;justify-content:space-between;font-size:11px"><span>Subtotal</span><span>₱${t.subtotal.toFixed(2)}</span></div>`;
+  if(t.discount_amount>0) html+=`<div style="display:flex;justify-content:space-between;font-size:11px;color:#c62828"><span>Discount</span><span>-₱${t.discount_amount.toFixed(2)}</span></div>`;
+  html+=`<div style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>VAT</span><span>₱${(t.tax_amount||0).toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin-top:3px"><span>TOTAL</span><span>₱${t.total_amount.toFixed(2)}</span></div>
+    <hr style="border:none;border-top:1px dashed #ccc;margin:4px 0">
+    <div style="background:#f9f9f9;padding:4px 6px;font-size:11px"><strong>Payment: ${t.payment_method?.toUpperCase()}</strong><br>
+    Amount Paid: ₱${(t.amount_paid||0).toFixed(2)} | Change: ₱${(t.change_amount||0).toFixed(2)}</div>
+    ${t.notes?`<p style="font-size:10px;margin-top:4px">Notes: ${t.notes}</p>`:''}
+    <div style="text-align:center;font-size:10px;color:#999;margin-top:6px">Thank you! 🐾 Please come again.</div>
+  </div>`;
+  const w = window.open('','_blank','width=380,height=680');
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt - ${t.transaction_code}</title>
+  <style>body{margin:0;padding:8px;background:#fff}@media print{body{margin:0;padding:2px}}</style>
+  </head><body>${html}
+  <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()};}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+const tq2=[]; let tb2=false;
+function showToast(msg,type='s'){tq2.push({msg,type});if(!tb2)nt2();}
+function nt2(){
+  if(!tq2.length){tb2=false;return;}tb2=true;
+  const{msg,type}=tq2.shift();
+  const el=document.createElement('div');
+  el.className=`vsms-toast ${type==='s'?'t-success':type==='d'?'t-danger':'t-warning'}`;
+  el.innerHTML=`<i class="bi bi-${type==='s'?'check':'exclamation'}-circle-fill me-2"></i>${msg}`;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>{el.remove();setTimeout(nt2,80);},350);},3000);
+}
+</script>
+{% endblock %}

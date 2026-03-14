@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}{{ po.po_number }} — VSMS{% endblock %}
+{% block page_title %}Purchase Order Detail{% endblock %}
+
+{% block head %}
+<style>
+.po-status{border-radius:7px;padding:4px 12px;font-size:.82rem;font-weight:800}
+.po-pending{background:#fff3e0;color:#e65100}
+.po-partial{background:#e3f2fd;color:#1565c0}
+.po-arrived{background:#e8eaf6;color:#283593}
+.po-approved{background:#eff6ff;color:#0f172a}
+.po-cancelled{background:#fce4ec;color:#880e4f}
+
+/* timeline */
+.tl{position:relative;padding-left:2rem}
+.tl::before{content:'';position:absolute;left:.55rem;top:0;bottom:0;width:2px;background:#eff6ff}
+.tl-node{position:relative;margin-bottom:1.4rem}
+.tl-dot{position:absolute;left:-1.48rem;top:.25rem;width:16px;height:16px;border-radius:50%;background:#eff6ff;border:2.5px solid #bfdbfe;z-index:1}
+.tl-dot.done{background:#3b82f6;border-color:#3b82f6}
+.tl-dot.active{background:#1e3a5f;border-color:#1e3a5f;box-shadow:0 0 0 5px rgba(59,130,246,.18)}
+.tl-dot.pending{background:#fff3e0;border-color:#ffb74d}
+.tl-title{font-weight:700;font-size:.88rem}
+.tl-sub{font-size:.74rem;color:#aaa;margin-top:1px}
+
+/* items table */
+.recv-in{width:70px;text-align:center;border:1.5px solid #e2e8f0;border-radius:7px;padding:.25rem .4rem;font-size:.88rem;font-weight:700}
+.recv-in:focus{border-color:#3b82f6;outline:none}
+.qty-bar-wrap{height:5px;background:#f0f0f0;border-radius:3px;margin-top:3px;overflow:hidden}
+.qty-bar{height:100%;border-radius:3px;background:#3b82f6}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <a href="{{ url_for('purchase_orders.index') }}" class="btn-vsms-outline">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  <div>
+    <h4 class="fw-800 mb-0">{{ po.po_number }}</h4>
+    <div class="text-muted small">Created {{ po.created_at[:16] }} by {{ po.created_by_name }}</div>
+  </div>
+  <span class="po-status po-{{ po.status }} ms-1">
+    {% if po.status=='pending' %}⏳ Pending
+    {% elif po.status=='partial' %}📦 Partial Arrival
+    {% elif po.status=='arrived' %}🚚 Arrived — Awaiting Approval
+    {% elif po.status=='approved' %}✅ Approved & In Stock
+    {% else %}❌ Cancelled{% endif %}
+  </span>
+  <div class="ms-auto d-flex gap-2">
+    {% if session.role in ['admin','inventory_manager'] %}
+    {% if po.status in ['pending','partial'] %}
+    <button class="btn-vsms btn-success-vsms" onclick="openArrivedModal()">
+      <i class="bi bi-box-arrow-in-down me-1"></i>Mark as Arrived
+    </button>
+    {% endif %}
+    {% if po.status in ['arrived','partial'] %}
+    <form method="POST" action="{{ url_for('purchase_orders.approve', po_id=po.po_id) }}" onsubmit="return confirm('Approve this PO and update inventory stock?')">
+      <button type="submit" class="btn-vsms">
+        <i class="bi bi-check-circle me-1"></i>Approve & Add to Inventory
+      </button>
+    </form>
+    {% endif %}
+    {% if po.status not in ['approved','cancelled'] %}
+    <form method="POST" action="{{ url_for('purchase_orders.cancel', po_id=po.po_id) }}" onsubmit="return confirm('Cancel this PO?')">
+      <button type="submit" class="btn-vsms-outline" style="color:#c62828;border-color:#c62828">
+        <i class="bi bi-x-circle me-1"></i>Cancel
+      </button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Left: info + timeline -->
+  <div class="col-lg-4">
+    <div class="table-card p-0 mb-3">
+      <div class="card-header-vsms"><h3>Order Info</h3></div>
+      <div style="padding:.9rem 1.1rem">
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Supplier</span><strong>{{ po.supplier_name }}</strong></div>
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Phone</span><span>{{ po.supplier_phone or '—' }}</span></div>
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Email</span><span>{{ po.supplier_email or '—' }}</span></div>
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Expected</span><span>{{ po.expected_date or '—' }}</span></div>
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Arrived</span><span>{{ po.arrived_date or '—' }}</span></div>
+        {% if po.approved_by_name %}
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Approved by</span><span>{{ po.approved_by_name }}</span></div>
+        {% endif %}
+        <div class="d-flex justify-content-between mb-2 small"><span class="text-muted">Total Value</span><strong class="text-success">₱{{ "%.2f"|format(po.total_amount) }}</strong></div>
+        {% if po.notes %}
+        <hr style="border-color:#eff6ff">
+        <div class="small text-muted">Notes:</div>
+        <div class="small">{{ po.notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="table-card p-0">
+      <div class="card-header-vsms"><h3>Order Timeline</h3></div>
+      <div style="padding:1rem 1.2rem">
+        <div class="tl">
+          <div class="tl-node">
+            <div class="tl-dot done"></div>
+            <div class="tl-title">Order Created</div>
+            <div class="tl-sub">{{ po.created_at[:16] }} · {{ po.created_by_name }}</div>
+          </div>
+          <div class="tl-node">
+            <div class="tl-dot {{ 'done' if po.status in ['partial','arrived','approved'] else 'pending' }}"></div>
+            <div class="tl-title">Sent to Supplier</div>
+            <div class="tl-sub">{{ 'Confirmed' if po.status in ['partial','arrived','approved'] else 'Waiting for supplier' }}</div>
+          </div>
+          <div class="tl-node">
+            <div class="tl-dot {{ 'done' if po.status in ['arrived','approved'] else ('active' if po.status=='partial' else '') }}"></div>
+            <div class="tl-title">Items Arrived</div>
+            <div class="tl-sub">{{ po.arrived_date if po.arrived_date else 'Not yet received' }}
+              {% if po.status=='partial' %}<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">Partial</span>{% endif %}
+            </div>
+          </div>
+          <div class="tl-node">
+            <div class="tl-dot {{ 'active' if po.status=='arrived' else ('done' if po.status=='approved' else '') }}"></div>
+            <div class="tl-title">Awaiting Approval</div>
+            <div class="tl-sub">{{ 'Pending approval' if po.status=='arrived' else ('Approved ✓' if po.status=='approved' else '—') }}</div>
+          </div>
+          <div class="tl-node">
+            <div class="tl-dot {{ 'done' if po.status=='approved' else '' }}"></div>
+            <div class="tl-title">Stock Updated</div>
+            <div class="tl-sub">{{ 'Products added to inventory ✓' if po.status=='approved' else 'Pending approval' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: items -->
+  <div class="col-lg-8">
+    <div class="table-card p-0">
+      <div class="card-header-vsms">
+        <h3>Order Items ({{ items|length }})</h3>
+        {% if po.status == 'approved' %}
+        <span class="badge bg-success">All items added to inventory</span>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="vsms-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="text-center">Ordered</th>
+              <th class="text-center">Received</th>
+              <th>Batch #</th>
+              <th>Expiry</th>
+              <th class="text-end">Unit Cost</th>
+              <th class="text-end">Subtotal</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            {% set pct = ((item.quantity_received / item.quantity_ordered) * 100) if item.quantity_ordered > 0 else 0 %}
+            <tr>
+              <td>
+                <div class="fw-700 small">{{ item.product_name }}</div>
+                <div class="text-muted" style="font-size:.7rem">Current stock: {{ item.current_stock }} {{ item.unit }}</div>
+              </td>
+              <td class="text-center fw-700">{{ item.quantity_ordered }}</td>
+              <td class="text-center">
+                <div class="fw-700 {{ 'text-success' if item.quantity_received >= item.quantity_ordered else 'text-warning' }}">
+                  {{ item.quantity_received }}
+                </div>
+                <div class="qty-bar-wrap">
+                  <div class="qty-bar" style="width:{{ pct }}%"></div>
+                </div>
+              </td>
+              <td><code style="font-size:.75rem">{{ item.batch_number or '—' }}</code></td>
+              <td class="small {% if item.expiration_date %}text-warning{% else %}text-muted{% endif %}">{{ item.expiration_date or '—' }}</td>
+              <td class="text-end small">₱{{ "%.2f"|format(item.unit_cost) }}</td>
+              <td class="text-end fw-700">₱{{ "%.2f"|format(item.unit_cost * item.quantity_ordered) }}</td>
+              <td>
+                {% if item.quantity_received >= item.quantity_ordered %}
+                  <span class="status-badge status-success">Complete</span>
+                {% elif item.quantity_received > 0 %}
+                  <span class="status-badge status-warning">Partial</span>
+                {% else %}
+                  <span class="status-badge status-danger">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8fdf8;font-weight:700">
+              <td colspan="6" class="text-end">Total Order Value</td>
+              <td class="text-end text-success">₱{{ "%.2f"|format(po.total_amount) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mark Arrived Modal -->
+{% if session.role in ['admin','inventory_manager'] and po.status in ['pending','partial'] %}
+<div class="modal fade" id="arrivedModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="bi bi-box-arrow-in-down me-2 text-success"></i>Record Item Arrival</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('purchase_orders.mark_arrived', po_id=po.po_id) }}">
+        <div class="modal-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-600 small">Arrival Date *</label>
+              <input type="date" name="arrived_date" class="form-control" value="{{ today }}" required style="border:1.5px solid #bfdbfe;border-radius:9px">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label fw-600 small">Notes</label>
+              <input type="text" name="notes" class="form-control" style="border:1.5px solid #bfdbfe;border-radius:9px" placeholder="Delivery note number, condition, etc.">
+            </div>
+          </div>
+          <p class="fw-700 small mb-2">Enter Received Quantities:</p>
+          {% for item in items %}
+          <div class="d-flex align-items-center gap-3 p-2 mb-2" style="background:#f8fdf8;border-radius:10px;border:1.5px solid #eff6ff">
+            <div style="flex:1">
+              <div class="fw-700 small">{{ item.product_name }}</div>
+              <div class="text-muted" style="font-size:.72rem">Ordered: {{ item.quantity_ordered }} · Previously received: {{ item.quantity_received }}</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="small text-muted">Received:</label>
+              <input type="number" name="recv_{{ item.poi_id }}" class="recv-in"
+                value="{{ item.quantity_ordered - item.quantity_received }}"
+                min="0" max="{{ item.quantity_ordered }}">
+              <span class="small text-muted">/ {{ item.quantity_ordered }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-vsms"><i class="bi bi-check-circle me-1"></i>Save Arrival</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openArrivedModal() {
+  new bootstrap.Modal(document.getElementById('arrivedModal')).show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,894 @@
+{% extends "base.html" %}
+{% block title %}Products — VSMS{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block head %}
+<style>
+/* ── Product cards grid ──────────────────────────────────────────────── */
+.prod-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem}
+.prod-card{background:#fff;border:1.5px solid #eff6ff;border-radius:14px;overflow:hidden;
+  cursor:pointer;transition:all .2s;display:flex;flex-direction:column}
+.prod-card:hover{border-color:#3b82f6;transform:translateY(-3px);box-shadow:0 6px 24px rgba(59,130,246,.18)}
+.prod-card.low-stock{border-color:#ffb74d}
+.prod-card.out-stock{border-color:#ef9a9a;opacity:.7}
+.prod-card-img{height:110px;background:linear-gradient(135deg,#f8fafc,#eff6ff);display:flex;
+  align-items:center;justify-content:center;position:relative;overflow:hidden}
+.prod-card-img img{width:100%;height:100%;object-fit:cover}
+.prod-card-img .no-img{font-size:2.5rem;color:#bfdbfe}
+.pc-cat-tag{position:absolute;top:7px;left:7px;background:rgba(30,58,95,.9);color:#fff;
+  border-radius:5px;padding:2px 7px;font-size:.62rem;font-weight:700}
+.pc-rx-tag{position:absolute;top:7px;right:7px;background:#ef5350;color:#fff;
+  border-radius:5px;padding:2px 6px;font-size:.62rem;font-weight:800}
+.pc-stock-tag{position:absolute;bottom:6px;right:7px;border-radius:5px;padding:2px 7px;font-size:.63rem;font-weight:700}
+.pc-stock-ok{background:#eff6ff;color:#1e3a5f}
+.pc-stock-low{background:#fff3e0;color:#e65100}
+.pc-stock-out{background:#ffebee;color:#c62828}
+.prod-card-body{padding:.75rem .85rem;flex:1;display:flex;flex-direction:column}
+.prod-card-name{font-weight:700;font-size:.85rem;line-height:1.3;margin-bottom:.2rem;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prod-card-brand{font-size:.7rem;color:#aaa;margin-bottom:.5rem}
+.prod-card-price{font-size:1rem;font-weight:800;color:#1e3a5f}
+.prod-card-cost{font-size:.72rem;color:#bbb}
+.prod-card-foot{display:flex;gap:.4rem;padding:.55rem .7rem;border-top:1px solid #f8fafc;background:#fafbff}
+.pc-ft-btn{flex:1;padding:.3rem;border:none;border-radius:7px;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .14s;display:flex;align-items:center;justify-content:center;gap:.2rem}
+.pc-ft-btn:hover{transform:translateY(-1px)}
+.pc-btn-view{background:#eff6ff;color:#1e3a5f}
+.pc-btn-view:hover{background:#1e3a5f;color:#fff}
+.pc-btn-edit{background:#fff8e1;color:#e65100}
+.pc-btn-edit:hover{background:#e65100;color:#fff}
+.pc-btn-print{background:#e3f2fd;color:#1565c0}
+.pc-btn-print:hover{background:#1565c0;color:#fff}
+
+/* ── View toggle ─────────────────────────────────────────────────────── */
+.view-toggle{display:flex;gap:.3rem}
+.vt-btn{width:32px;height:32px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;
+  color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.95rem;transition:all .14s}
+.vt-btn.active{background:#1e3a5f;border-color:#1e3a5f;color:#fff}
+
+/* ── Product detail drawer ───────────────────────────────────────────── */
+.prod-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;backdrop-filter:blur(2px)}
+.prod-drawer-overlay.open{display:block;animation:fadeO .2s ease}
+@keyframes fadeO{from{opacity:0}to{opacity:1}}
+.prod-drawer{position:fixed;top:0;right:-700px;width:min(700px,100vw);height:100vh;
+  background:#fff;z-index:2001;display:flex;flex-direction:column;
+  box-shadow:-8px 0 40px rgba(0,0,0,.18);transition:right .3s cubic-bezier(.4,0,.2,1)}
+.prod-drawer.open{right:0}
+.drawer-head{padding:1.1rem 1.3rem;border-bottom:1.5px solid #eff6ff;display:flex;align-items:center;gap:.8rem;flex-shrink:0;background:linear-gradient(135deg,#f8fafc,#fff)}
+.drawer-head h4{font-weight:800;margin:0;font-size:1.05rem;flex:1}
+.drawer-body{flex:1;overflow-y:auto;padding:0}
+.drawer-body::-webkit-scrollbar{width:5px}
+.drawer-body::-webkit-scrollbar-thumb{background:#bfdbfe;border-radius:3px}
+.drawer-section{padding:1.1rem 1.3rem;border-bottom:1.5px solid #f8fafc}
+.drawer-section:last-child{border-bottom:none}
+.drawer-section h6{font-weight:800;font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:#aaa;margin-bottom:.85rem}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.info-item{background:#f8fdf8;border-radius:9px;padding:.55rem .75rem}
+.info-item label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#aaa;display:block;margin-bottom:.15rem}
+.info-item span{font-weight:700;font-size:.88rem}
+.price-highlight{grid-column:span 2;background:linear-gradient(135deg,#eff6ff,#f8fafc);border:1.5px solid #e2e8f0;border-radius:10px;padding:.7rem 1rem;display:flex;justify-content:space-between;align-items:center}
+.ph-sell{font-size:1.3rem;font-weight:800;color:#0f172a}
+.ph-cost{font-size:.82rem;color:#888}
+.ph-margin{background:#1e3a5f;color:#fff;border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:800}
+/* stock meter */
+.stock-meter{background:#f8fafc;border-radius:10px;padding:.7rem 1rem}
+.sm-numbers{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.4rem}
+.sm-current{font-size:1.5rem;font-weight:800;line-height:1}
+.sm-unit{font-size:.78rem;color:#888;margin-bottom:.2rem}
+.sm-min{font-size:.78rem;color:#e65100}
+.sm-bar-track{height:8px;background:#eff6ff;border-radius:4px;overflow:hidden}
+.sm-bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+/* movement history */
+.mv-item{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem 0;border-bottom:1px solid #f8fafc}
+.mv-item:last-child{border-bottom:none}
+.mv-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-top:1px}
+.mv-sale{background:#e3f2fd;color:#1565c0}
+.mv-stock_in{background:#eff6ff;color:#1e3a5f}
+.mv-adjustment{background:#fff8e1;color:#e65100}
+.mv-damaged{background:#ffebee;color:#c62828}
+.mv-returned{background:#e0f7fa;color:#006064}
+.mv-expired_removal{background:#fce4ec;color:#880e4f}
+.mv-initial{background:var(--success-soft);color:#6a1b9a}
+.mv-info{flex:1;min-width:0}
+.mv-title{font-size:.82rem;font-weight:700;margin-bottom:1px}
+.mv-sub{font-size:.7rem;color:#aaa}
+.mv-qty{font-size:.88rem;font-weight:800;flex-shrink:0}
+.mv-qty.pos{color:#1e3a5f}
+.mv-qty.neg{color:#ef5350}
+/* batch table */
+.batch-pill{border-radius:5px;padding:2px 7px;font-size:.7rem;font-weight:700}
+.bp-active{background:#eff6ff;color:#1e3a5f}
+.bp-expiring{background:#fff8e1;color:#e65100}
+.bp-expired{background:#ffebee;color:#c62828}
+/* barcode print preview inside drawer */
+.bc-print-preview{background:#f8f8f8;border:1.5px dashed #bfdbfe;border-radius:10px;padding:1.2rem;text-align:center}
+.bc-svg-label{display:inline-flex;flex-direction:column;align-items:center;background:#fff;border:1px dashed #ccc;padding:7px 9px;border-radius:6px}
+
+/* ── Stats summary row ───────────────────────────────────────────────── */
+.prod-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.8rem;margin-bottom:1.1rem}
+.ps-card{background:#fff;border:1.5px solid #eff6ff;border-radius:12px;padding:.75rem 1rem;display:flex;align-items:center;gap:.7rem}
+.ps-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.ps-val{font-weight:800;font-size:1.2rem;line-height:1.1}
+.ps-lbl{font-size:.7rem;color:#aaa}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Summary stats -->
+<div class="prod-stats">
+  <div class="ps-card">
+    <div class="ps-icon" style="background:#eff6ff;color:#1e3a5f"><i class="bi bi-box-seam"></i></div>
+    <div><div class="ps-val">{{ total }}</div><div class="ps-lbl">Total Products</div></div>
+  </div>
+  <div class="ps-card">
+    <div class="ps-icon" style="background:#ffebee;color:#c62828"><i class="bi bi-exclamation-triangle"></i></div>
+    <div><div class="ps-val" style="color:#c62828">{{ products | selectattr('stock', 'le', 0) | list | length if products else 0 }}</div><div class="ps-lbl">Out of Stock</div></div>
+  </div>
+  <div class="ps-card">
+    <div class="ps-icon" style="background:#fff3e0;color:#e65100"><i class="bi bi-arrow-down-circle"></i></div>
+    <div><div class="ps-val" style="color:#e65100">{{ low_stock_count }}</div><div class="ps-lbl">Low Stock</div></div>
+  </div>
+  <div class="ps-card">
+    <div class="ps-icon" style="background:#e3f2fd;color:#1565c0"><i class="bi bi-bank2"></i></div>
+    <div><div class="ps-val" style="color:#1565c0">₱{{ "%.0f"|format(inventory_value) }}</div><div class="ps-lbl">Inventory Value</div></div>
+  </div>
+  <div class="ps-card">
+    <div class="ps-icon" style="background:#f3e5f5;color:#6a1b9a"><i class="bi bi-graph-up"></i></div>
+    <div><div class="ps-val" style="color:#6a1b9a">₱{{ "%.0f"|format(retail_value) }}</div><div class="ps-lbl">Retail Value</div></div>
+  </div>
+</div>
+
+<!-- Action Bar -->
+<div class="page-actions-bar mb-3">
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    <form method="GET" class="d-flex gap-2 flex-wrap align-items-center" id="filterForm">
+      <div class="search-input-wrap">
+        <i class="bi bi-search search-icon"></i>
+        <input type="text" name="search" class="form-control search-input"
+               placeholder="Search name, barcode, brand…" value="{{ search }}" id="searchIn">
+      </div>
+      <select name="category" class="form-select filter-select">
+        <option value="">All Categories</option>
+        {% for c in categories %}
+        <option value="{{ c.category }}" {% if category==c.category %}selected{% endif %}>{{ c.category }}</option>
+        {% endfor %}
+      </select>
+      <select name="stock_filter" class="form-select filter-select">
+        <option value="">All Stock</option>
+        <option value="low" {% if stock_filter=='low' %}selected{% endif %}>Low Stock</option>
+        <option value="out" {% if stock_filter=='out' %}selected{% endif %}>Out of Stock</option>
+        <option value="ok" {% if stock_filter=='ok' %}selected{% endif %}>In Stock</option>
+      </select>
+      <button type="submit" class="btn-vsms"><i class="bi bi-funnel me-1"></i>Filter</button>
+      {% if search or category or stock_filter %}
+      <a href="{{ url_for('products.index') }}" class="btn-vsms-outline"><i class="bi bi-x-lg"></i></a>
+      {% endif %}
+    </form>
+    <!-- View toggle -->
+    <div class="view-toggle ms-1">
+      <button class="vt-btn active" id="gridViewBtn" onclick="setView('grid')" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
+      <button class="vt-btn" id="listViewBtn" onclick="setView('list')" title="List view"><i class="bi bi-list-ul"></i></button>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn-vsms-outline" onclick="openBulkBarcode()">
+      <i class="bi bi-upc me-1"></i>Print Labels
+    </button>
+    {% if session.role in ['admin','inventory_manager'] %}
+    <button class="btn-vsms btn-add" onclick="openAddModal()">
+      <i class="bi bi-plus-circle-fill me-1"></i>Add Product
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="results-info mb-2">Showing <strong>{{ products|length }}</strong> of <strong>{{ total }}</strong> products</div>
+
+<!-- ── GRID VIEW ── -->
+<div id="gridView">
+  <div class="prod-cards">
+    {% for p in products %}
+    {% set stock_class = 'out-stock' if p.stock <= 0 else ('low-stock' if p.stock <= p.low_stock_threshold else '') %}
+    <div class="prod-card {{ stock_class }}" onclick="openDrawer({{ p.product_id }})">
+      <div class="prod-card-img">
+        {% if p.image %}
+        <img src="{{ url_for('static', filename='uploads/' + p.image) }}" alt="{{ p.product_name }}">
+        {% else %}
+        <i class="bi bi-box-seam no-img"></i>
+        {% endif %}
+        <span class="pc-cat-tag">{{ p.category.replace('Veterinary ','').replace(' ','') }}</span>
+        {% if p.requires_prescription %}<span class="pc-rx-tag">Rx</span>{% endif %}
+        {% if p.stock <= 0 %}
+        <span class="pc-stock-tag pc-stock-out">Out of Stock</span>
+        {% elif p.stock <= p.low_stock_threshold %}
+        <span class="pc-stock-tag pc-stock-low">Low: {{ p.stock }}</span>
+        {% else %}
+        <span class="pc-stock-tag pc-stock-ok">{{ p.stock }} {{ p.unit }}</span>
+        {% endif %}
+      </div>
+      <div class="prod-card-body">
+        <div class="prod-card-name">{{ p.product_name }}</div>
+        <div class="prod-card-brand">{{ p.brand or '—' }}{% if p.supplier_name %} · {{ p.supplier_name }}{% endif %}</div>
+        <div class="mt-auto">
+          <div class="prod-card-price">₱{{ "%.2f"|format(p.price) }}</div>
+          <div class="prod-card-cost">Cost: ₱{{ "%.2f"|format(p.cost_price) }}</div>
+        </div>
+      </div>
+      <div class="prod-card-foot" onclick="event.stopPropagation()">
+        <button class="pc-ft-btn pc-btn-view" onclick="openDrawer({{ p.product_id }})">
+          <i class="bi bi-eye"></i>View
+        </button>
+        {% if session.role in ['admin','inventory_manager'] %}
+        <button class="pc-ft-btn pc-btn-edit" onclick="openEditModal({{ p | todict | tojson | e }})">
+          <i class="bi bi-pencil"></i>Edit
+        </button>
+        {% endif %}
+        <button class="pc-ft-btn pc-btn-print" onclick="quickPrintLabel({{ p.product_id }}, '{{ p.product_name|e }}', '{{ p.barcode }}', {{ p.price }})">
+          <i class="bi bi-upc"></i>Print
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div style="grid-column:1/-1">
+      <div class="empty-state py-5"><i class="bi bi-box-seam"></i><p>No products found</p></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── LIST VIEW ── -->
+<div id="listView" style="display:none">
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="vsms-table">
+        <thead>
+          <tr><th>Image</th><th>Product</th><th>Barcode</th><th>Category</th><th>Price</th><th>Cost</th><th>Stock</th><th>Supplier</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+          <tr style="cursor:pointer" onclick="openDrawer({{ p.product_id }})">
+            <td onclick="event.stopPropagation()">
+              {% if p.image %}
+              <img src="{{ url_for('static', filename='uploads/'+p.image) }}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;border:2px solid #eff6ff">
+              {% else %}
+              <div style="width:38px;height:38px;border-radius:8px;background:#eff6ff;display:flex;align-items:center;justify-content:center;color:#3b82f6"><i class="bi bi-box-seam"></i></div>
+              {% endif %}
+            </td>
+            <td>
+              <div class="fw-700">{{ p.product_name }}{% if p.requires_prescription %}<span class="badge bg-danger ms-1" style="font-size:.62rem">Rx</span>{% endif %}</div>
+              <div class="text-muted small">{{ p.brand or '' }}</div>
+            </td>
+            <td><code class="barcode-text">{{ p.barcode }}</code></td>
+            <td><span class="cat-badge">{{ p.category }}</span></td>
+            <td class="fw-700 text-success">₱{{ "%.2f"|format(p.price) }}</td>
+            <td class="text-muted small">₱{{ "%.2f"|format(p.cost_price) }}</td>
+            <td>
+              <span class="stock-badge {{ 'stock-zero' if p.stock<=0 else ('stock-low' if p.stock<=p.low_stock_threshold else 'stock-ok') }}">
+                {{ p.stock }} {{ p.unit }}
+              </span>
+            </td>
+            <td class="small">{{ p.supplier_name or '—' }}</td>
+            <td onclick="event.stopPropagation()">
+              <div class="action-btns">
+                <button class="btn-icon btn-view" onclick="openDrawer({{ p.product_id }})" title="View"><i class="bi bi-eye"></i></button>
+                {% if session.role in ['admin','inventory_manager'] %}
+                <button class="btn-icon btn-edit" onclick="openEditModal({{ p | todict | tojson | e }})" title="Edit"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+                <button class="btn-icon btn-view" onclick="quickPrintLabel({{ p.product_id }},'{{ p.product_name|e }}','{{ p.barcode }}',{{ p.price }})" title="Print barcode" style="background:#e3f2fd;color:#1565c0"><i class="bi bi-upc"></i></button>
+                {% if session.role=='admin' %}
+                <form method="POST" action="{{ url_for('products.delete', pid=p.product_id) }}" class="d-inline" onsubmit="return confirm('Delete this product?')">
+                  <button type="submit" class="btn-icon btn-delete" title="Delete"><i class="bi bi-trash3"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center py-5"><div class="empty-state"><i class="bi bi-box-seam"></i><p>No products found</p></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="pagination-wrap mt-3">
+  <nav><ul class="pagination">
+    {% if page > 1 %}<li class="page-item"><a class="page-link" href="?page={{ page-1 }}&search={{ search }}&category={{ category }}&stock_filter={{ stock_filter }}"><i class="bi bi-chevron-left"></i></a></li>{% endif %}
+    {% for pn in range([1,page-2]|max, [total_pages+1,page+3]|min) %}
+    <li class="page-item {% if pn==page %}active{% endif %}"><a class="page-link" href="?page={{ pn }}&search={{ search }}&category={{ category }}&stock_filter={{ stock_filter }}">{{ pn }}</a></li>
+    {% endfor %}
+    {% if page < total_pages %}<li class="page-item"><a class="page-link" href="?page={{ page+1 }}&search={{ search }}&category={{ category }}&stock_filter={{ stock_filter }}"><i class="bi bi-chevron-right"></i></a></li>{% endif %}
+  </ul></nav>
+</div>
+{% endif %}
+
+<!-- ════════════════ PRODUCT DETAIL DRAWER ════════════════════════════ -->
+<div class="prod-drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="prod-drawer" id="prodDrawer">
+  <div class="drawer-head">
+    <div style="width:40px;height:40px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#1e3a5f;flex-shrink:0">
+      <i class="bi bi-box-seam"></i>
+    </div>
+    <h4 id="drawerTitle">Product Details</h4>
+    <div class="d-flex gap-2">
+      <button class="btn-vsms-sm" id="drawerEditBtn" style="display:none" onclick="editFromDrawer()">
+        <i class="bi bi-pencil me-1"></i>Edit
+      </button>
+      <button class="btn-vsms-sm pc-btn-print" id="drawerPrintBtn" onclick="printFromDrawer()">
+        <i class="bi bi-upc me-1"></i>Print
+      </button>
+      <button class="btn-icon btn-delete" onclick="closeDrawer()" style="width:30px;height:30px;background:#f5f5f5;color:#888;border:none"><i class="bi bi-x-lg"></i></button>
+    </div>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <div class="text-center py-5"><div class="spinner-border text-success"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════ ADD PRODUCT MODAL ═══════════════════════════════ -->
+{% if session.role in ['admin','inventory_manager'] %}
+<div class="modal fade" id="addProductModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header"><h5 class="modal-title fw-700"><i class="bi bi-plus-circle me-2"></i>Add New Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form method="POST" action="{{ url_for('products.add') }}" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8"><label class="form-label fw-500">Product Name *</label><input type="text" name="product_name" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label fw-500">Barcode</label>
+              <div class="input-group"><input type="text" name="barcode" id="add-barcode" class="form-control" placeholder="Auto-generate">
+              <button type="button" class="btn btn-outline-secondary" onclick="genBC('add-barcode')"><i class="bi bi-upc-scan"></i></button></div></div>
+            <div class="col-md-4"><label class="form-label fw-500">Category *</label>
+              <select name="category" class="form-select" required>
+                <option value="">Select</option>
+                <option value="Veterinary Medicines">Veterinary Medicines</option>
+                <option value="Vaccines">Vaccines</option>
+                <option value="Pet Supplements">Pet Supplements</option>
+                <option value="Pet Food">Pet Food</option>
+                <option value="Veterinary Equipment">Veterinary Equipment</option>
+              </select></div>
+            <div class="col-md-4"><label class="form-label fw-500">Brand</label><input type="text" name="brand" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label fw-500">Supplier</label>
+              <select name="supplier_id" class="form-select">
+                <option value="">None</option>
+                {% for s in suppliers %}<option value="{{ s.supplier_id }}">{{ s.name }}</option>{% endfor %}
+              </select></div>
+            <div class="col-md-3"><label class="form-label fw-500">Selling Price (₱) *</label><input type="number" name="price" step="0.01" class="form-control" required oninput="calcMarginAdd()"></div>
+            <div class="col-md-3"><label class="form-label fw-500">Cost Price (₱)</label><input type="number" name="cost_price" step="0.01" class="form-control" value="0" oninput="calcMarginAdd()"></div>
+            <div class="col-md-2"><label class="form-label fw-500">Initial Stock</label><input type="number" name="stock" class="form-control" value="0" min="0"></div>
+            <div class="col-md-2"><label class="form-label fw-500">Unit</label>
+              <select name="unit" class="form-select"><option value="pcs">Pieces</option><option value="tablet">Tablets</option><option value="bottle">Bottles</option><option value="vial">Vials</option><option value="bag">Bags</option><option value="pouch">Pouches</option><option value="box">Boxes</option><option value="piece">Piece</option><option value="pack">Packs</option></select></div>
+            <div class="col-md-2"><label class="form-label fw-500">Min. Stock</label><input type="number" name="low_stock_threshold" class="form-control" value="10" min="1"></div>
+            <div class="col-md-4"><label class="form-label fw-500">Expiry (if applicable)</label><input type="date" name="expiration_date" class="form-control"></div>
+            <div class="col-md-4 d-flex align-items-end">
+              <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="requires_prescription" value="1" id="addRx"><label class="form-check-label fw-500" for="addRx">Requires Prescription (Rx)</label></div>
+            </div>
+            <div class="col-md-4"><label class="form-label fw-500">Profit Margin</label><div class="info-box" id="addMarginBox">—</div></div>
+            <div class="col-md-8"><label class="form-label fw-500">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-4"><label class="form-label fw-500">Product Image</label><input type="file" name="image" class="form-control" accept="image/*"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-vsms"><i class="bi bi-check-circle me-1"></i>Add Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ EDIT PRODUCT MODAL ══════════════════════════════ -->
+<div class="modal fade" id="editProductModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header"><h5 class="modal-title fw-700"><i class="bi bi-pencil me-2"></i>Edit Product</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form method="POST" id="editForm" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-8"><label class="form-label fw-500">Product Name *</label><input type="text" name="product_name" id="e-name" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label fw-500">Barcode</label><input type="text" name="barcode" id="e-barcode" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label fw-500">Category *</label>
+              <select name="category" id="e-cat" class="form-select" required>
+                <option value="Veterinary Medicines">Veterinary Medicines</option>
+                <option value="Vaccines">Vaccines</option>
+                <option value="Pet Supplements">Pet Supplements</option>
+                <option value="Pet Food">Pet Food</option>
+                <option value="Veterinary Equipment">Veterinary Equipment</option>
+              </select></div>
+            <div class="col-md-4"><label class="form-label fw-500">Brand</label><input type="text" name="brand" id="e-brand" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label fw-500">Supplier</label>
+              <select name="supplier_id" id="e-supplier" class="form-select">
+                <option value="">None</option>
+                {% for s in suppliers %}<option value="{{ s.supplier_id }}">{{ s.name }}</option>{% endfor %}
+              </select></div>
+            <div class="col-md-3"><label class="form-label fw-500">Selling Price (₱) *</label><input type="number" name="price" id="e-price" step="0.01" class="form-control" required oninput="calcMarginEdit()"></div>
+            <div class="col-md-3"><label class="form-label fw-500">Cost Price (₱)</label><input type="number" name="cost_price" id="e-cost" step="0.01" class="form-control" oninput="calcMarginEdit()"></div>
+            <div class="col-md-2"><label class="form-label fw-500">Unit</label><input type="text" name="unit" id="e-unit" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label fw-500">Min. Stock</label><input type="number" name="low_stock_threshold" id="e-thresh" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label fw-500">Margin</label><div class="info-box" id="editMarginBox" style="font-size:.8rem">—</div></div>
+            <div class="col-md-12"><label class="form-label fw-500">Description</label><textarea name="description" id="e-desc" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-8"><label class="form-label fw-500">New Image (optional)</label><input type="file" name="image" class="form-control" accept="image/*"></div>
+            <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="requires_prescription" value="1" id="e-rx"><label class="form-check-label fw-500" for="e-rx">Requires Prescription</label></div></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-vsms"><i class="bi bi-check-circle me-1"></i>Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ════════════════ BARCODE PRINT MODAL ════════════════════════════ -->
+<div class="modal fade" id="bcPrintModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header"><h5 class="modal-title fw-700"><i class="bi bi-upc me-2 text-success"></i>Print Barcode Labels</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-600 small">Product *</label>
+            <select id="bpProd" class="form-select" onchange="renderBcPreview()" style="border:1.5px solid #bfdbfe;border-radius:9px">
+              <option value="">— Select product —</option>
+              {% for p in all_products %}
+              <option value="{{ p.product_id }}" data-bc="{{ p.barcode }}" data-price="{{ p.price }}" data-name="{{ p.product_name|e }}">{{ p.product_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2"><label class="form-label fw-600 small">Copies</label>
+            <input type="number" id="bpQty" class="form-control" value="1" min="1" max="200" style="border:1.5px solid #bfdbfe;border-radius:9px;font-weight:700;text-align:center"></div>
+          <div class="col-md-2"><label class="form-label fw-600 small">Size</label>
+            <select id="bpSize" class="form-select" onchange="renderBcPreview()" style="border:1.5px solid #bfdbfe;border-radius:9px">
+              <option value="sm">Small</option><option value="md" selected>Medium</option><option value="lg">Large</option>
+            </select></div>
+          <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="bpShowPrice" checked onchange="renderBcPreview()"><label class="form-check-label fw-600 small" for="bpShowPrice">Price</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="bpShowName" checked onchange="renderBcPreview()"><label class="form-check-label fw-600 small" for="bpShowName">Name</label></div>
+          </div>
+        </div>
+        <div class="bc-print-preview" id="bcPreviewArea">
+          <p class="text-muted small">Select a product to preview</p>
+        </div>
+        <p class="text-muted small mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Preview shows 1 label. Print will output all copies on standard label paper.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-vsms" onclick="executePrint()"><i class="bi bi-printer me-1"></i>Print Labels</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════ */
+let _drawerPid   = null;
+let _drawerData  = null;
+let _editFromDrawer = false;
+const CAN_EDIT = {{ 'true' if session.role in ['admin','inventory_manager'] else 'false' }};
+const CAN_DEL  = {{ 'true' if session.role == 'admin' else 'false' }};
+
+/* ═══════════════════════════════════════════════════════════════════
+   VIEW TOGGLE
+═══════════════════════════════════════════════════════════════════ */
+function setView(v) {
+  document.getElementById('gridView').style.display = v==='grid' ? '' : 'none';
+  document.getElementById('listView').style.display = v==='list' ? '' : 'none';
+  document.getElementById('gridViewBtn').classList.toggle('active', v==='grid');
+  document.getElementById('listViewBtn').classList.toggle('active', v==='list');
+  localStorage.setItem('prodView', v);
+}
+(function(){ const v = localStorage.getItem('prodView')||'grid'; setView(v); })();
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRODUCT DETAIL DRAWER
+═══════════════════════════════════════════════════════════════════ */
+async function openDrawer(pid) {
+  _drawerPid = pid;
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('prodDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('drawerBody').innerHTML =
+    '<div class="text-center py-5"><div class="spinner-border text-success"></div></div>';
+
+  try {
+    const [prodRes, movRes] = await Promise.all([
+      fetch(`/products/${pid}/batches`),
+      fetch(`/api/products/${pid}/movements`)
+    ]);
+    const pd = await prodRes.json();
+    const mv = await movRes.json();
+    _drawerData = pd;
+    renderDrawer(pd, mv);
+  } catch(e) {
+    document.getElementById('drawerBody').innerHTML =
+      '<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-circle fs-2"></i><p>Failed to load product</p></div>';
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('prodDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+  _drawerPid = null;
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
+
+function renderDrawer(pd, mv) {
+  const p    = pd.product;
+  const bats = pd.batches || [];
+  const mvs  = mv.movements || [];
+  const logs = mv.logs      || [];
+  const today = new Date().toISOString().split('T')[0];
+  const warn  = new Date(Date.now()+30*24*3600*1000).toISOString().split('T')[0];
+
+  // Merge movements + logs
+  const all = [
+    ...mvs.map(m=>({...m})),
+    ...logs.filter(l => !mvs.find(m=>m.reference_id===l.reference_id&&m.created_at===l.created_at))
+           .map(l=>({...l, move_type:l.action, quantity:l.quantity_change}))
+  ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  document.getElementById('drawerTitle').textContent = p.product_name;
+  if (CAN_EDIT) document.getElementById('drawerEditBtn').style.display = '';
+  document.getElementById('drawerPrintBtn').onclick = () => quickPrintLabel(p.product_id, p.product_name, p.barcode, p.price);
+
+  const margin = p.price > 0 ? (((p.price - p.cost_price) / p.price) * 100).toFixed(1) : 0;
+  const stockPct = Math.min(100, Math.round((p.stock / (p.low_stock_threshold * 3)) * 100));
+  const stockColor = p.stock <= 0 ? '#ef5350' : p.stock <= p.low_stock_threshold ? '#ff9800' : '#3b82f6';
+
+  let html = '';
+
+  // ── Info section ──
+  html += `<div class="drawer-section">
+    <div class="d-flex gap-3 mb-3">`;
+  if (p.image) {
+    html += `<img src="/static/uploads/${p.image}" style="width:90px;height:90px;object-fit:cover;border-radius:12px;border:2px solid #eff6ff;flex-shrink:0">`;
+  } else {
+    html += `<div style="width:90px;height:90px;background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#bfdbfe;flex-shrink:0"><i class="bi bi-box-seam"></i></div>`;
+  }
+  html += `<div style="flex:1">
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem">
+        <span class="cat-badge">${p.category}</span>
+        ${p.requires_prescription ? '<span class="badge bg-danger" style="font-size:.65rem">Rx Required</span>' : ''}
+        <span class="status-badge ${p.stock<=0?'status-danger':p.stock<=p.low_stock_threshold?'status-warning':'status-success'}">${p.stock<=0?'Out of Stock':p.stock<=p.low_stock_threshold?'Low Stock':'In Stock'}</span>
+      </div>
+      <div style="font-size:.82rem;color:#666;line-height:1.5">${p.description||'<em style="color:#ccc">No description</em>'}</div>
+      <div style="margin-top:.5rem"><code style="background:#f5f5f5;padding:3px 8px;border-radius:5px;font-size:.78rem">${p.barcode||'No barcode'}</code></div>
+    </div>
+  </div>
+
+  <div class="price-highlight mb-3">
+    <div><div style="font-size:.7rem;color:#666;margin-bottom:2px">SELLING PRICE</div><div class="ph-sell">₱${parseFloat(p.price).toFixed(2)}</div></div>
+    <div style="text-align:center"><div style="font-size:.7rem;color:#888">Cost: ₱${parseFloat(p.cost_price).toFixed(2)}</div><span class="ph-margin">${margin}% margin</span></div>
+    <div style="text-align:right"><div style="font-size:.7rem;color:#666;margin-bottom:2px">RETAIL VALUE</div><div style="font-weight:800;font-size:1rem;color:#1565c0">₱${(p.price*p.stock).toFixed(2)}</div></div>
+  </div>
+
+  <div class="stock-meter mb-3">
+    <div class="sm-numbers">
+      <div><div class="sm-current" style="color:${stockColor}">${p.stock}</div><div class="sm-unit">${p.unit} in stock</div></div>
+      <div class="sm-min">Min: ${p.low_stock_threshold} ${p.unit}</div>
+    </div>
+    <div class="sm-bar-track"><div class="sm-bar-fill" style="width:${stockPct}%;background:${stockColor}"></div></div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-item"><label>Brand</label><span>${p.brand||'—'}</span></div>
+    <div class="info-item"><label>Supplier</label><span>${p.supplier_name||'—'}</span></div>
+    <div class="info-item"><label>Unit</label><span>${p.unit}</span></div>
+    <div class="info-item"><label>Added</label><span>${(p.created_at||'').substring(0,10)}</span></div>
+    <div class="info-item"><label>Last Updated</label><span>${(p.updated_at||'').substring(0,10)}</span></div>
+    <div class="info-item"><label>Cost Value</label><span>₱${(p.cost_price*p.stock).toFixed(2)}</span></div>
+  </div>
+  </div>`;
+
+  // ── Batches section ──
+  html += `<div class="drawer-section">
+    <h6>Batch / Lot Tracking (${bats.length})</h6>`;
+  if (bats.length) {
+    html += '<div style="overflow-x:auto"><table class="vsms-table" style="font-size:.79rem"><thead><tr><th>Batch #</th><th>Received</th><th>Expiry</th><th>Original</th><th>Remaining</th><th>Status</th></tr></thead><tbody>';
+    bats.forEach(b => {
+      const isExp  = b.expiration_date && b.expiration_date < today;
+      const isWarn = b.expiration_date && !isExp && b.expiration_date < warn;
+      const cls    = isExp ? 'bp-expired' : isWarn ? 'bp-expiring' : 'bp-active';
+      const lbl    = isExp ? 'Expired' : isWarn ? 'Expiring' : 'Active';
+      html += `<tr>
+        <td><code style="font-size:.72rem">${b.batch_number}</code></td>
+        <td class="text-muted">${b.date_received||'—'}</td>
+        <td class="${isExp?'text-danger fw-700':isWarn?'text-warning fw-700':'text-muted'}">${b.expiration_date||'N/A'}</td>
+        <td>${b.quantity}</td>
+        <td class="fw-700">${b.remaining_quantity}</td>
+        <td><span class="batch-pill ${cls}">${lbl}</span></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  } else {
+    html += '<div class="empty-state py-3"><i class="bi bi-layers" style="font-size:1.5rem"></i><p>No batches yet</p></div>';
+  }
+  html += '</div>';
+
+  // ── Movement history ──
+  const icons  = {sale:'🛒',stock_in:'📦',adjustment:'⚙️',damaged:'🔴',returned:'🔵',expired_removal:'⚠️',initial:'🆕',return:'🔄'};
+  const labels = {sale:'Sale',stock_in:'Stock In',adjustment:'Adjustment',damaged:'Damaged',returned:'Returned',expired_removal:'Expired Removal',initial:'Initial Stock',return:'Return'};
+  html += `<div class="drawer-section">
+    <h6>Movement History (${all.length} records)</h6>`;
+  if (all.length) {
+    html += '<div style="max-height:320px;overflow-y:auto">';
+    all.forEach(m => {
+      const qty  = +(m.quantity||0);
+      const isPos = qty > 0;
+      const type = m.move_type||'adjustment';
+      html += `<div class="mv-item">
+        <div class="mv-dot mv-${type}">${icons[type]||'📋'}</div>
+        <div class="mv-info">
+          <div class="mv-title">${labels[type]||type}</div>
+          <div class="mv-sub">${(m.created_at||'').substring(0,16)} · ${m.user_name||'—'}
+            ${m.reference_id ? ` · <span class="txn-code" style="font-size:.66rem">${m.reference_id}</span>` : ''}
+          </div>
+          ${m.notes ? `<div style="font-size:.7rem;color:#888;margin-top:1px">${m.notes}</div>` : ''}
+        </div>
+        <div>
+          <div class="mv-qty ${isPos?'pos':'neg'}">${isPos?'+':''}${qty}</div>
+          <div style="font-size:.67rem;color:#bbb;text-align:right">${m.quantity_before??'—'} → ${m.quantity_after??'—'}</div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="empty-state py-3"><i class="bi bi-clock-history" style="font-size:1.5rem"></i><p>No history yet</p></div>';
+  }
+  html += '</div>';
+
+  // ── Quick actions ──
+  if (CAN_EDIT) {
+    html += `<div class="drawer-section">
+      <h6>Quick Actions</h6>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('inventory.index') }}?search=${encodeURIComponent(p.product_name)}" class="btn-vsms-sm"><i class="bi bi-clipboard2-data me-1"></i>View in Inventory</a>
+        <button class="btn-vsms-sm btn-success-vsms" onclick="closeDrawer(); setTimeout(()=>{ document.querySelector('[onclick*=\\'prefillStockIn(${p.product_id}\\']')?.click() }, 400)">
+          <i class="bi bi-box-arrow-in-down me-1"></i>Stock In
+        </button>
+        <button class="btn-vsms-sm" style="background:#ffebee;color:#c62828" onclick="promptDeductFromDrawer(${p.product_id}, '${p.product_name.replace(/'/g,"\\'")}', ${p.stock})">
+          <i class="bi bi-dash-circle me-1"></i>Record Deduction
+        </button>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('drawerBody').innerHTML = html;
+}
+
+function editFromDrawer() {
+  if (!_drawerData) return;
+  openEditModal(_drawerData.product);
+}
+
+async function promptDeductFromDrawer(pid, name, stock) {
+  closeDrawer();
+  // Small delay then open deduction modal on inventory page or show inline
+  const qty   = parseInt(prompt(`Deduct from "${name}" (current stock: ${stock}).\n\nEnter quantity to deduct:`)||0);
+  if (!qty || qty < 1) return;
+  const reason = prompt('Reason (damaged / returned / expired / adjustment):') || 'Manual adjustment';
+  const typeMap = {damaged:'damaged',returned:'returned',expired:'expired_removal',adjustment:'adjustment'};
+  const mt = typeMap[reason.toLowerCase().split(' ')[0]] || 'adjustment';
+  const res = await fetch('/api/inventory/manual-deduction', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({product_id:pid, quantity:qty, move_type:mt, notes:reason})
+  });
+  const d = await res.json();
+  if (d.success) { alert(`✅ Deducted ${qty} units. New stock: ${d.new_stock}`); location.reload(); }
+  else alert('Error: '+(d.message||'Unknown'));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODALS (Add / Edit)
+═══════════════════════════════════════════════════════════════════ */
+function openAddModal() { new bootstrap.Modal(document.getElementById('addProductModal')).show(); }
+
+function openEditModal(p) {
+  document.getElementById('e-name').value    = p.product_name;
+  document.getElementById('e-barcode').value = p.barcode||'';
+  document.getElementById('e-cat').value     = p.category;
+  document.getElementById('e-brand').value   = p.brand||'';
+  document.getElementById('e-price').value   = p.price;
+  document.getElementById('e-cost').value    = p.cost_price;
+  document.getElementById('e-unit').value    = p.unit;
+  document.getElementById('e-thresh').value  = p.low_stock_threshold;
+  document.getElementById('e-desc').value    = p.description||'';
+  document.getElementById('e-supplier').value = p.supplier_id||'';
+  document.getElementById('e-rx').checked    = p.requires_prescription==1;
+  document.getElementById('editForm').action = `/products/${p.product_id}/edit`;
+  calcMarginEdit();
+  new bootstrap.Modal(document.getElementById('editProductModal')).show();
+}
+
+function calcMarginAdd() {
+  const price = parseFloat(document.querySelector('[name="price"]').value)||0;
+  const cost  = parseFloat(document.querySelector('[name="cost_price"]').value)||0;
+  const m = price > 0 ? (((price-cost)/price)*100).toFixed(1) : 0;
+  document.getElementById('addMarginBox').innerHTML =
+    `<span class="fw-700 ${m>0?'text-success':'text-danger'}">${m}%</span> <span class="text-muted small">margin · ₱${(price-cost).toFixed(2)} profit/unit</span>`;
+}
+
+function calcMarginEdit() {
+  const price = parseFloat(document.getElementById('e-price').value)||0;
+  const cost  = parseFloat(document.getElementById('e-cost').value)||0;
+  const m = price > 0 ? (((price-cost)/price)*100).toFixed(1) : 0;
+  document.getElementById('editMarginBox').innerHTML =
+    `<span class="fw-700 ${m>0?'text-success':'text-danger'}">${m}%</span> <span style="font-size:.72rem;color:#aaa">· ₱${(price-cost).toFixed(2)}/unit</span>`;
+}
+
+async function genBC(id) {
+  const r = await fetch('/api/products/generate-barcode');
+  const d = await r.json();
+  document.getElementById(id).value = d.barcode;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   BARCODE PRINTING — Pure SVG Code128, no external lib
+═══════════════════════════════════════════════════════════════════ */
+let _printPid=null, _printBc=null, _printName=null, _printPrice=0;
+
+function quickPrintLabel(pid, name, barcode, price) {
+  _printPid=pid; _printBc=barcode; _printName=name; _printPrice=price;
+  // pre-select in the modal
+  const sel = document.getElementById('bpProd');
+  for(let i=0;i<sel.options.length;i++){
+    if(sel.options[i].value==pid){ sel.selectedIndex=i; break; }
+  }
+  renderBcPreview();
+  new bootstrap.Modal(document.getElementById('bcPrintModal')).show();
+}
+
+function openBulkBarcode() {
+  new bootstrap.Modal(document.getElementById('bcPrintModal')).show();
+  renderBcPreview();
+}
+
+function printFromDrawer() {
+  if (_drawerData) {
+    const p = _drawerData.product;
+    quickPrintLabel(p.product_id, p.product_name, p.barcode, p.price);
+  }
+}
+
+function renderBcPreview() {
+  const sel   = document.getElementById('bpProd');
+  const opt   = sel.options[sel.selectedIndex];
+  const area  = document.getElementById('bcPreviewArea');
+  if (!opt || !opt.value) { area.innerHTML='<p class="text-muted small">Select a product to preview</p>'; return; }
+  const svg = buildBcSVG(opt.dataset.name, opt.dataset.bc||opt.dataset.barcode||opt.value, parseFloat(opt.dataset.price||0));
+  area.innerHTML = `<div class="bc-svg-label">${svg}</div>`;
+}
+
+function buildBcSVG(name, barcode, price) {
+  const size  = document.getElementById('bpSize')?.value || 'md';
+  const showP = document.getElementById('bpShowPrice')?.checked ?? true;
+  const showN = document.getElementById('bpShowName')?.checked ?? true;
+  const cfg   = {sm:{w:160,bh:28,bw:1.0,fs:8},md:{w:210,bh:40,bw:1.4,fs:9},lg:{w:280,bh:55,bw:1.9,fs:10}};
+  const c     = cfg[size]||cfg.md;
+  const bars  = makeCode128(barcode||'000000');
+  const totalW = bars.length * c.bw;
+  const ox     = (c.w - totalW) / 2;
+
+  let parts = [], yy = 5;
+  if (showN) {
+    const nm = name.length > 28 ? name.substring(0,28)+'…' : name;
+    parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="700" fill="#111">${xmlEsc(nm)}</text>`);
+    yy += c.fs + 4;
+  }
+  // bars
+  let bx = ox;
+  bars.forEach(on => {
+    if (on) parts.push(`<rect x="${bx.toFixed(2)}" y="${yy}" width="${c.bw.toFixed(2)}" height="${c.bh}" fill="#000"/>`);
+    bx += c.bw;
+  });
+  yy += c.bh + 2;
+  // code text
+  parts.push(`<text x="${c.w/2}" y="${yy+8}" text-anchor="middle" font-family="monospace" font-size="8" fill="#333">${xmlEsc(barcode)}</text>`);
+  yy += 11;
+  if (showP) {
+    parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="800" fill="#1e3a5f">₱${parseFloat(price).toFixed(2)}</text>`);
+    yy += c.fs + 3;
+  }
+  const totalH = yy + 4;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${c.w}" height="${totalH}" style="display:block;background:#fff">${parts.join('')}</svg>`;
+}
+
+function xmlEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function makeCode128(text) {
+  // Code128-B full implementation
+  const B_START=104, STOP=106;
+  const PAT={0:'11011001100',1:'11001101100',2:'11001100110',3:'10010011000',4:'10010001100',5:'10001001100',6:'10011001000',7:'10011000100',8:'10001100100',9:'11001001000',10:'11001000100',11:'11000100100',12:'10110011100',13:'10011011100',14:'10011001110',15:'10111001100',16:'10011101100',17:'10011100110',18:'11001110010',19:'11001011100',20:'11001001110',21:'11011100100',22:'11001110100',23:'11101101110',24:'11101001100',25:'11100101100',26:'11100100110',27:'11101100100',28:'11100110100',29:'11100110010',30:'11011011000',31:'11011000110',32:'11000110110',33:'10100011000',34:'10001011000',35:'10001000110',36:'10110001000',37:'10001101000',38:'10001100010',39:'11010001000',40:'11000101000',41:'11000100010',42:'10110111000',43:'10110001110',44:'10001101110',45:'10111011000',46:'10111000110',47:'10001110110',48:'11101110110',49:'11010001110',50:'11000101110',51:'11011101000',52:'11011100010',53:'11011101110',54:'11101011000',55:'11101000110',56:'11100010110',57:'11101101000',58:'11101100010',59:'11100011010',60:'11101111010',61:'11001000010',62:'11110001010',63:'10100110000',64:'10100001100',65:'10010110000',66:'10010000110',67:'10000101100',68:'10000100110',69:'10110010000',70:'10110000100',71:'10011010000',72:'10011000010',73:'10000110100',74:'10000110010',75:'11000010010',76:'11001010000',77:'11110111010',78:'11000010100',79:'10001111010',80:'10100111100',81:'10010111100',82:'10010011110',83:'10111100100',84:'10011110100',85:'10011110010',86:'11110100100',87:'11110010100',88:'11110010010',89:'11011011110',90:'11011110110',91:'11110110110',92:'10101111000',93:'10100011110',94:'10001011110',95:'10111101000',96:'10111100010',97:'11110101000',98:'11110100010',99:'10111011110',100:'10111101110',101:'11101011110',102:'11110101110',103:'11010000100',104:'11010010000',105:'11010011110',106:'11000111010'};
+  const chars = text.split('').map(c => c.charCodeAt(0) - 32);
+  const vals  = [B_START, ...chars];
+  let chk = B_START;
+  chars.forEach((v,i) => chk = (chk + (i+1)*v) % 103);
+  vals.push(chk, STOP);
+  let bits = '';
+  vals.forEach(v => bits += PAT[v]||PAT[0]);
+  bits += '11';
+  return bits.split('').map(b=>b==='1');
+}
+
+function executePrint() {
+  const sel = document.getElementById('bpProd');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt||!opt.value) { alert('Please select a product'); return; }
+  const qty  = Math.max(1, Math.min(200, parseInt(document.getElementById('bpQty').value)||1));
+  const name = opt.dataset.name || opt.textContent;
+  const bc   = opt.dataset.bc || opt.dataset.barcode || opt.value;
+  const px   = parseFloat(opt.dataset.price||0);
+
+  // Snapshot settings from modal before closing window
+  const size   = document.getElementById('bpSize').value;
+  const showPr = document.getElementById('bpShowPrice').checked;
+  const showNm = document.getElementById('bpShowName').checked;
+
+  // Build all label SVGs with overridden settings
+  const cfg   = {sm:{w:160,bh:28,bw:1.0,fs:8},md:{w:210,bh:40,bw:1.4,fs:9},lg:{w:280,bh:55,bw:1.9,fs:10}};
+  const c     = cfg[size]||cfg.md;
+
+  function mkSVG() {
+    const bars  = makeCode128(bc||'000000');
+    const total = bars.length * c.bw;
+    const ox    = (c.w - total) / 2;
+    let parts=[], yy=5;
+    if (showNm) {
+      const nm = name.length>28 ? name.substring(0,28)+'…' : name;
+      parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="700" fill="#111">${xmlEsc(nm)}</text>`);
+      yy += c.fs+4;
+    }
+    let bx=ox;
+    bars.forEach(on => { if(on) parts.push(`<rect x="${bx.toFixed(2)}" y="${yy}" width="${c.bw.toFixed(2)}" height="${c.bh}" fill="#000"/>`); bx+=c.bw; });
+    yy += c.bh+2;
+    parts.push(`<text x="${c.w/2}" y="${yy+8}" text-anchor="middle" font-family="monospace" font-size="8" fill="#333">${xmlEsc(bc)}</text>`);
+    yy += 11;
+    if (showPr) {
+      parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="800" fill="#1e3a5f">₱${px.toFixed(2)}</text>`);
+      yy += c.fs+3;
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${c.w}" height="${yy+4}" style="display:block;background:#fff">${parts.join('')}</svg>`;
+  }
+
+  const labelsHTML = Array.from({length:qty}, ()=>`<div class="lbl">${mkSVG()}</div>`).join('');
+
+  const w = window.open('','_blank','width=800,height=650,scrollbars=yes');
+  if (!w) { alert('Pop-up blocked! Allow pop-ups for this site and try again.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>Labels — ${name}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#fff;font-family:Arial,sans-serif;padding:8px}
+    .wrap{display:flex;flex-wrap:wrap;gap:5px;align-items:flex-start}
+    .lbl{border:1px dashed #aaa;padding:4px 5px;display:inline-flex;flex-direction:column;align-items:center;background:#fff;break-inside:avoid}
+    svg{display:block}
+    @media print{
+      body{padding:2px}
+      .lbl{border:1px dashed #ccc}
+      @page{margin:5mm}
+    }
+  </style></head><body>
+  <div class="wrap">${labelsHTML}</div>
+  <script>
+    window.onload = function(){
+      setTimeout(function(){
+        window.print();
+        window.onafterprint = function(){ window.close(); };
+      }, 300);
+    };
+  <\/script>
+  </body></html>`);
+  w.document.close();
+}
+</script>
+{% endblock %}

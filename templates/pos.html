@@ -1,0 +1,1369 @@
+{% extends "base.html" %}
+{% block title %}POS — VSMS{% endblock %}
+{% block page_title %}Point of Sale{% endblock %}
+
+{% block head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+/* ── Layout ─────────────────────────────────────────────────── */
+.pos-root{display:grid;grid-template-columns:1fr 390px;gap:1rem;height:calc(100vh - 128px);min-height:520px}
+.pos-left{display:flex;flex-direction:column;gap:.8rem;overflow:hidden;min-width:0}
+.pos-right{display:flex;flex-direction:column;height:100%}
+
+/* ── Scanner bar ─────────────────────────────────────────────── */
+.scan-bar{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:.75rem 1rem;flex-shrink:0}
+.si{position:relative}
+.si input{padding-left:2.4rem;border-radius:9px;border:1.5px solid #e2e8f0;font-size:.88rem;transition:border .15s}
+.si input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12);outline:none}
+.si-ico{position:absolute;left:.72rem;top:50%;transform:translateY(-50%);color:#3b82f6;font-size:.95rem;pointer-events:none}
+.hot-bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.5rem}
+.h-item{display:flex;align-items:center;gap:.25rem;font-size:.7rem;color:#94a3b8}
+.sc-key{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:.08rem .38rem;font-size:.67rem;font-weight:700;color:#475569;font-family:monospace;box-shadow:0 1px 0 #cbd5e1}
+
+/* ── Product browser ─────────────────────────────────────────── */
+.prod-browser{background:#fff;border-radius:14px;border:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0}
+.cat-bar{display:flex;gap:.35rem;padding:.6rem .8rem .4rem;overflow-x:auto;border-bottom:1px solid #f1f5f9;flex-shrink:0;scrollbar-width:none}
+.cat-bar::-webkit-scrollbar{display:none}
+.cpill{border:none;border-radius:20px;padding:.25rem .78rem;font-size:.76rem;font-weight:700;background:#f1f5f9;color:#64748b;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.cpill.on,.cpill:hover{background:var(--primary);color:#fff}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:.6rem;padding:.65rem .8rem 1rem;overflow-y:auto;flex:1;align-content:start}
+.pc{position:relative;background:#fff;border:1.5px solid #e2e8f0;border-radius:11px;padding:.72rem .6rem;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s;text-align:center;user-select:none}
+.pc:hover{border-color:#3b82f6;box-shadow:0 3px 12px rgba(59,130,246,.15)}
+.pc:active{transform:scale(.97)}
+.pc.oos{opacity:.35;pointer-events:none}
+.pc.rx::after{content:'Rx';position:absolute;top:5px;left:5px;background:#dc2626;color:#fff;font-size:.58rem;font-weight:800;padding:1px 4px;border-radius:4px}
+.pc-cat{font-size:.58rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:.2rem}
+.pc-name{font-size:.78rem;font-weight:700;line-height:1.25;margin-bottom:.28rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:1.9rem}
+.pc-price{color:var(--primary);font-weight:800;font-size:.9rem}
+.pc-stock{font-size:.66rem;color:#94a3b8;margin-top:1px}
+.pc-qty{position:absolute;top:-7px;right:-7px;background:var(--primary);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.grid-msg{grid-column:1/-1;text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.85rem}
+.srch-wrap{position:relative}
+.srch-dd{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;z-index:2000;max-height:220px;overflow-y:auto;box-shadow:0 6px 24px rgba(15,28,46,.12);display:none}
+.sd-item{display:flex;align-items:center;gap:.6rem;padding:.52rem .85rem;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:.83rem;transition:background .1s}
+.sd-item:last-child{border-bottom:none}
+.sd-item:hover{background:#eff6ff}
+
+/* ── Cart ─────────────────────────────────────────────────────── */
+.cart-panel{background:#fff;border-radius:14px;border:1px solid #e2e8f0;display:flex;flex-direction:column;height:100%;overflow:hidden}
+.cart-head{padding:.75rem .95rem;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.cart-head h5{font-weight:800;font-size:.95rem;margin:0;flex:1}
+.cnt-badge{background:var(--primary);color:#fff;border-radius:20px;padding:1px 8px;font-size:.72rem;font-weight:800}
+.cust-in{border:1.5px solid #e2e8f0;border-radius:8px;padding:.28rem .6rem;font-size:.78rem;width:140px}
+.cust-in:focus{border-color:#3b82f6;outline:none}
+.cart-body{flex:1;overflow-y:scroll;padding:.35rem .45rem;min-height:0;height:0}
+.cart-body::-webkit-scrollbar{width:5px}
+.cart-body::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
+.ci{display:flex;align-items:center;gap:.5rem;padding:.5rem .4rem;border-radius:9px;transition:background .12s}
+.ci:hover{background:#f8fafc}
+.ci-info{flex:1;min-width:0}
+.ci-name{font-size:.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.ci-sub{font-size:.68rem;color:#94a3b8}
+.qc{display:flex;align-items:center;gap:.3rem;flex-shrink:0}
+.qb{width:28px;height:28px;border:none;border-radius:7px;background:#eff6ff;color:var(--primary);font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .12s;flex-shrink:0}
+.qb:hover,.qb:active{background:var(--primary);color:#fff}
+.qn-in{width:36px;text-align:center;border:1.5px solid #e2e8f0;border-radius:6px;font-size:.85rem;font-weight:700;padding:.15rem 0;-moz-appearance:textfield}
+.qn-in::-webkit-outer-spin-button,.qn-in::-webkit-inner-spin-button{-webkit-appearance:none}
+.qn-in:focus{border-color:#3b82f6;outline:none}
+.ci-amt{min-width:62px;text-align:right;font-weight:800;font-size:.85rem;color:var(--primary);flex-shrink:0}
+.rm-ci{background:none;border:none;color:#ef5350;cursor:pointer;padding:3px;border-radius:5px;font-size:.88rem;transition:background .1s;flex-shrink:0}
+.rm-ci:hover{background:#fef2f2}
+.cart-empty{text-align:center;padding:2.5rem .5rem;color:#94a3b8}
+.cart-empty i{font-size:2.5rem;display:block;margin-bottom:.6rem}
+.cart-foot{padding:.8rem .95rem;border-top:1px solid #e2e8f0;background:#fafbfd;border-radius:0 0 14px 14px;flex-shrink:0}
+.tot-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem;font-size:.86rem}
+.tot-row.grand{font-size:1.1rem;font-weight:800;color:var(--primary);border-top:1.5px solid #e2e8f0;padding-top:.4rem;margin-top:.3rem}
+.tot-row.dim{font-size:.76rem;color:#94a3b8}
+.disc-in{width:52px;text-align:center;border:1.5px solid #e2e8f0;border-radius:7px;padding:.22rem .3rem;font-size:.82rem;font-weight:700}
+.disc-in:focus{border-color:#3b82f6;outline:none}
+.pay-btn{width:100%;margin-top:.6rem;padding:.78rem;font-size:.98rem;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--primary-mid));color:#fff;border:none;border-radius:11px;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:.4rem;font-family:var(--font)}
+.pay-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 20px rgba(30,58,95,.35)}
+.pay-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.hold-bar{display:flex;gap:.4rem;margin-top:.45rem}
+.hb{flex:1;padding:.38rem .5rem;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.76rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .14s;text-align:center}
+.hb:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ── Payment modal ────────────────────────────────────────────── */
+.pm-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1rem}
+.pm-tab{border:2px solid #e2e8f0;border-radius:12px;padding:.75rem .4rem;text-align:center;cursor:pointer;transition:all .15s;background:#fff;font-weight:700;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.pm-tab i{font-size:1.35rem}
+.pm-tab:hover{border-color:#3b82f6;background:#f8fafc}
+.pm-tab.active{border-color:var(--primary);background:linear-gradient(135deg,#eff6ff,#f8fafc);color:var(--primary)}
+.pm-pane{display:none}
+.pm-pane.active{display:block}
+
+/* Cash */
+.denom-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.38rem;margin:.55rem 0}
+.denom-btn{padding:.42rem .2rem;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.79rem;font-weight:700;color:var(--primary);cursor:pointer;transition:all .12s;text-align:center}
+.denom-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.change-box{background:linear-gradient(135deg,#eff6ff,#f8fafc);border-radius:10px;padding:.65rem 1rem;text-align:center;border:1.5px solid #bfdbfe;margin-top:.5rem}
+.change-box.short{background:#fef2f2;border-color:#fecaca}
+.chg-label{font-size:.72rem;color:#64748b}
+.chg-amount{font-size:1.4rem;font-weight:800;color:var(--primary)}
+.change-box.short .chg-amount{color:#dc2626}
+
+/* GCash */
+.qr-box{text-align:center;padding:.3rem 0}
+.qr-frame{display:inline-block;background:#fff;border:3px solid #e2e8f0;border-radius:14px;padding:1rem;box-shadow:0 4px 18px rgba(0,0,0,.08)}
+.qr-brand{display:flex;align-items:center;justify-content:center;gap:.4rem;margin-bottom:.4rem}
+.lbl-gcash{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:6px;padding:.15rem .6rem;font-size:.8rem;font-weight:800}
+.lbl-maya{background:linear-gradient(135deg,#059669,#047857);color:#fff;border-radius:6px;padding:.15rem .6rem;font-size:.8rem;font-weight:800}
+.lbl-instapay{background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border-radius:6px;padding:.15rem .6rem;font-size:.8rem;font-weight:800}
+.qr-instructions{background:#f8fafc;border-radius:9px;padding:.6rem .8rem;font-size:.76rem;color:#475569;text-align:left;margin-top:.65rem;border:1px solid #e2e8f0;line-height:1.6}
+.wallet-tabs{display:flex;gap:.35rem;margin-bottom:.7rem}
+.wt{flex:1;padding:.38rem;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.76rem;font-weight:700;cursor:pointer;transition:all .14s;text-align:center}
+.wt.active{border-color:var(--primary);background:#eff6ff;color:var(--primary)}
+
+/* Card */
+.card-types{display:flex;gap:.38rem;margin-bottom:.7rem}
+.ct{flex:1;padding:.38rem;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.76rem;font-weight:700;cursor:pointer;transition:all .14s;text-align:center}
+.ct.active{border-color:var(--primary);background:#eff6ff;color:var(--primary)}
+.card-form .form-label{font-size:.78rem;font-weight:700;margin-bottom:.28rem;color:#374151}
+.terminal-id{background:#f8fafc;border-radius:8px;padding:.45rem .75rem;font-size:.74rem;color:#64748b;margin-top:.5rem;border:1px solid #e2e8f0}
+
+/* Order summary */
+.ord-summary{background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:.65rem;max-height:220px;overflow-y:auto;font-size:.8rem}
+.ord-summary::-webkit-scrollbar{width:3px}
+.ord-row{display:flex;justify-content:space-between;align-items:center;padding:.22rem 0;border-bottom:1px solid #f1f5f9}
+.ord-row:last-child{border-bottom:none}
+
+/* Toast */
+.pos-toast{position:fixed;bottom:1.4rem;right:1.4rem;z-index:9999;background:#fff;border-radius:10px;padding:.6rem .95rem;box-shadow:0 6px 28px rgba(15,28,46,.15);font-size:.83rem;font-weight:700;display:flex;align-items:center;gap:.38rem;border-left:4px solid transparent;transform:translateX(130%);transition:transform .28s ease;max-width:290px}
+.pos-toast.show{transform:translateX(0)}
+.pos-toast.ts{border-left-color:#059669;color:#059669}
+.pos-toast.td{border-left-color:#dc2626;color:#dc2626}
+.pos-toast.tw{border-left-color:#d97706;color:#d97706}
+.pos-toast.ti{border-left-color:#0284c7;color:#0284c7}
+
+/* Receipt */
+.rcpt{font-family:'Courier New',monospace;font-size:12px;max-width:300px;margin:0 auto;background:#fff}
+.rcpt-center{text-align:center}
+.rcpt-divider{border:none;border-top:1px dashed #ccc;margin:.4rem 0}
+.rcpt-row{display:flex;justify-content:space-between;margin:.1rem 0;font-size:11px}
+.rcpt-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin:.2rem 0}
+.rcpt-pay{background:#f9f9f9;border:1px solid #eee;border-radius:3px;padding:.35rem .55rem;margin:.3rem 0;font-size:11px}
+
+/* Barcode label */
+.bc-preview-wrap{background:#f8fafc;border:1.5px dashed #e2e8f0;border-radius:10px;padding:1.2rem;text-align:center;min-height:110px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.5rem}
+.bc-label{display:inline-flex;flex-direction:column;align-items:center;background:#fff;border:1px dashed #ccc;padding:6px 8px;border-radius:5px}
+
+/* Hold card */
+.hold-card{display:flex;align-items:center;gap:.6rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.65rem .85rem;margin-bottom:.5rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pos-root">
+  <!-- ══ LEFT: Scanner + Products ══════════════════════════════════ -->
+  <div class="pos-left">
+    <!-- Scanner bar -->
+    <div class="scan-bar">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label fw-700 mb-1" style="font-size:.8rem"><i class="bi bi-upc-scan me-1 text-primary"></i>Barcode</label>
+          <div class="si">
+            <i class="bi bi-upc si-ico"></i>
+            <input type="text" id="barcodeIn" class="form-control" placeholder="Scan or type barcode…" autocomplete="off" autofocus>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-700 mb-1" style="font-size:.8rem"><i class="bi bi-search me-1 text-primary"></i>Search</label>
+          <div class="srch-wrap">
+            <div class="si">
+              <i class="bi bi-search si-ico"></i>
+              <input type="text" id="srchIn" class="form-control" placeholder="Product name / brand…" autocomplete="off">
+            </div>
+            <div id="srchDd" class="srch-dd"></div>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <button class="btn-vsms w-100" id="camBtn" onclick="toggleCam()">
+            <i class="bi bi-camera-video me-1"></i><span id="camTxt">Camera</span>
+          </button>
+        </div>
+        <div class="col-md-2">
+          <button class="btn-vsms-outline w-100" onclick="openHoldModal()">
+            <i class="bi bi-pause-circle me-1"></i>Hold
+            <span id="holdCnt" class="ms-1" style="display:none;background:#d97706;color:#fff;border-radius:20px;padding:0 6px;font-size:.68rem">0</span>
+          </button>
+        </div>
+      </div>
+      <div id="camArea" style="display:none;margin-top:.65rem">
+        <div id="camReader" style="border-radius:11px;overflow:hidden"></div>
+        <p class="text-muted text-center small mt-1">Point camera at barcode</p>
+      </div>
+      <div class="hot-bar">
+        <div class="h-item"><span class="sc-key">F2</span> Scan</div>
+        <div class="h-item"><span class="sc-key">F4</span> Search</div>
+        <div class="h-item"><span class="sc-key">F8</span> Pay</div>
+        <div class="h-item"><span class="sc-key">F9</span> Hold</div>
+        <div class="h-item"><span class="sc-key">Del</span> Clear</div>
+        <div class="ms-auto">
+          <button class="btn-vsms-sm" onclick="openBcModal()"><i class="bi bi-upc me-1"></i>Print Labels</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product grid -->
+    <div class="prod-browser">
+      <div class="cat-bar">
+        <button class="cpill on" onclick="setCat('all',this)">🐾 All</button>
+        <button class="cpill" onclick="setCat('Veterinary Medicines',this)">💊 Medicines</button>
+        <button class="cpill" onclick="setCat('Vaccines',this)">💉 Vaccines</button>
+        <button class="cpill" onclick="setCat('Pet Supplements',this)">🌿 Supplements</button>
+        <button class="cpill" onclick="setCat('Pet Food',this)">🦴 Pet Food</button>
+        <button class="cpill" onclick="setCat('Veterinary Equipment',this)">🔬 Equipment</button>
+      </div>
+      <div class="pgrid" id="pgrid">
+        <div class="grid-msg"><div class="spinner-border" style="width:1.4rem;height:1.4rem;color:var(--primary)"></div><p class="mt-2">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT: Cart ═══════════════════════════════════════════════ -->
+  <div class="pos-right">
+    <div class="cart-panel">
+      <div class="cart-head">
+        <h5><i class="bi bi-cart4 me-2" style="color:var(--primary)"></i>Cart <span class="cnt-badge" id="cartCnt">0</span></h5>
+        <input type="text" id="custName" class="cust-in" value="Walk-in Customer" placeholder="Customer name">
+        <button class="btn-icon btn-delete ms-1" onclick="clearCart()" title="Clear cart"><i class="bi bi-trash3"></i></button>
+      </div>
+      <div class="cart-body" id="cartBody"></div>
+      <div class="cart-foot">
+        <div class="tot-row"><span class="text-muted">Subtotal</span><span id="fSub">₱0.00</span></div>
+        <div class="tot-row">
+          <span class="text-muted">Discount</span>
+          <div class="d-flex align-items-center gap-1">
+            <input type="number" id="discIn" class="disc-in" value="0" min="0" max="100" step="0.5" oninput="recalc()">
+            <span class="text-muted small">%</span>
+          </div>
+        </div>
+        <div class="tot-row dim"><span>VAT (12% incl.)</span><span id="fVat">₱0.00</span></div>
+        <div class="tot-row grand"><span>TOTAL</span><span id="fTotal">₱0.00</span></div>
+        <button class="pay-btn" id="payBtn" onclick="openPayModal()" disabled>
+          <i class="bi bi-cash-coin me-1"></i>Process Payment
+          <kbd style="background:rgba(255,255,255,.18);border-radius:4px;padding:0 6px;font-size:.72rem">F8</kbd>
+        </button>
+        <div class="hold-bar">
+          <button class="hb" onclick="holdOrder()"><i class="bi bi-pause me-1"></i>Hold Order</button>
+          <button class="hb" onclick="newSale()"><i class="bi bi-arrow-counterclockwise me-1"></i>New Sale</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAYMENT MODAL ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="payModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header" style="background:linear-gradient(135deg,#eff6ff,#f8fafc)">
+        <h5 class="modal-title fw-800"><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payment Processing</h5>
+        <div class="ms-auto me-3 text-end">
+          <div style="font-size:.74rem;color:#64748b">Amount Due</div>
+          <div id="pmDue" style="font-size:1.6rem;font-weight:800;color:var(--primary)">₱0.00</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="row g-3">
+          <!-- LEFT: method + form -->
+          <div class="col-lg-7">
+            <p class="fw-700 small mb-2">Select Payment Method</p>
+            <div class="pm-methods">
+              <div class="pm-tab active" id="pmTab-cash" onclick="selectPM('cash')">
+                <i class="bi bi-cash-stack" style="color:#059669"></i>Cash
+              </div>
+              <div class="pm-tab" id="pmTab-gcash" onclick="selectPM('gcash')">
+                <i class="bi bi-phone-fill" style="color:#1d4ed8"></i>GCash / Maya
+              </div>
+              <div class="pm-tab" id="pmTab-card" onclick="selectPM('card')">
+                <i class="bi bi-credit-card-2-front-fill" style="color:#d97706"></i>Card
+              </div>
+            </div>
+
+            <!-- CASH pane -->
+            <div class="pm-pane active" id="pmPane-cash">
+              <label class="form-label fw-700 small">Amount Tendered (₱)</label>
+              <div class="input-group mb-1">
+                <span class="input-group-text" style="background:#eff6ff;border-color:#bfdbfe;font-weight:800;color:var(--primary)">₱</span>
+                <input type="number" id="cashAmt" class="form-control"
+                  style="border:1.5px solid #bfdbfe;border-left:none;font-size:1.1rem;font-weight:700"
+                  placeholder="0.00" oninput="updateChange()" step="0.01" min="0">
+              </div>
+              <div class="denom-grid">
+                <button class="denom-btn" onclick="addDenom(20)">₱20</button>
+                <button class="denom-btn" onclick="addDenom(50)">₱50</button>
+                <button class="denom-btn" onclick="addDenom(100)">₱100</button>
+                <button class="denom-btn" onclick="addDenom(200)">₱200</button>
+                <button class="denom-btn" onclick="addDenom(500)">₱500</button>
+                <button class="denom-btn" onclick="addDenom(1000)">₱1,000</button>
+                <button class="denom-btn" onclick="setExactAmount()" style="grid-column:span 2;color:#059669">✓ Exact Amount</button>
+              </div>
+              <div class="change-box" id="changeBox">
+                <div class="chg-label">Change</div>
+                <div class="chg-amount" id="chgAmt">₱0.00</div>
+              </div>
+            </div>
+
+            <!-- GCASH pane -->
+            <div class="pm-pane" id="pmPane-gcash">
+              <div class="wallet-tabs">
+                <button class="wt active" id="wt-gcash" onclick="setWallet('gcash',this)">📱 GCash</button>
+                <button class="wt" id="wt-maya" onclick="setWallet('maya',this)">💚 Maya</button>
+                <button class="wt" id="wt-instapay" onclick="setWallet('instapay',this)">🏦 InstaPay</button>
+              </div>
+              <div class="qr-box">
+                <div class="qr-brand">
+                  <span class="lbl-gcash" id="walletBrandLbl">GCash</span>
+                  <span style="font-size:.78rem;color:#64748b">Scan to Pay</span>
+                </div>
+                <div class="qr-frame"><canvas id="qrCanvas" width="180" height="180"></canvas></div>
+                <div style="font-size:1.2rem;font-weight:800;color:var(--primary);margin:.4rem 0" id="qrAmtDisplay">₱0.00</div>
+                <div style="font-size:.74rem;color:#94a3b8" id="qrRefDisplay">Ref: —</div>
+              </div>
+              <div class="qr-instructions">
+                1. Open <strong id="walletAppName">GCash</strong> → Scan QR<br>
+                2. Or send to: <strong style="color:#1d4ed8">09914603699</strong><br>
+                3. Confirm amount and send<br>
+                4. Enter reference number below
+              </div>
+              <div class="mt-2">
+                <label class="form-label fw-700 small">Reference / Confirmation No. *</label>
+                <input type="text" id="gwRef" class="form-control"
+                  style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
+                  placeholder="12-digit reference number" oninput="validateRef()">
+                <div id="refMsg" class="form-text"></div>
+              </div>
+            </div>
+
+            <!-- CARD pane -->
+            <div class="pm-pane" id="pmPane-card">
+              <div class="card-types">
+                <button class="ct active" id="ct-visa" onclick="setCardType('visa',this)">💳 Visa</button>
+                <button class="ct" id="ct-master" onclick="setCardType('mastercard',this)">💳 Mastercard</button>
+                <button class="ct" id="ct-amex" onclick="setCardType('amex',this)">💳 Amex</button>
+              </div>
+              <div class="card-form">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">Cardholder Name</label>
+                    <input type="text" id="cardName" class="form-control" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.85rem" placeholder="Name on card">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Last 4 Digits</label>
+                    <input type="text" id="cardLast4" class="form-control" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.85rem" placeholder="1234" maxlength="4" oninput="this.value=this.value.replace(/\D/g,'')">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Approval Code</label>
+                    <input type="text" id="cardApproval" class="form-control" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.85rem" placeholder="6-digit code">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Transaction Type</label>
+                    <select id="cardTxnType" class="form-select" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.85rem">
+                      <option>Full Payment</option>
+                      <option>Installment 3 mos</option>
+                      <option>Installment 6 mos</option>
+                      <option>Installment 12 mos</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="terminal-id mt-2">
+                  <i class="bi bi-building me-1"></i>Terminal: <strong>VSMS-POS-001</strong>
+                  &nbsp;|&nbsp; <i class="bi bi-calendar3 me-1"></i><span id="terminalDate"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="mt-2">
+              <label class="form-label fw-700 small">Notes (optional)</label>
+              <input type="text" id="txnNotes" class="form-control" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.85rem" placeholder="Prescription #, pet name, etc.">
+            </div>
+          </div>
+
+          <!-- RIGHT: order summary -->
+          <div class="col-lg-5">
+            <p class="fw-700 small mb-2">Order Summary</p>
+            <div class="ord-summary" id="ordSummary"></div>
+            <div class="mt-2" style="font-size:.82rem">
+              <div class="d-flex justify-content-between mb-1"><span class="text-muted">Subtotal</span><span id="pmSub">₱0.00</span></div>
+              <div class="d-flex justify-content-between mb-1 text-danger" id="pmDiscRow" style="display:none!important">
+                <span>Discount (<span id="pmDiscPct">0</span>%)</span>
+                <span id="pmDiscAmt">-₱0.00</span>
+              </div>
+              <div class="d-flex justify-content-between mb-1 text-muted" style="font-size:.78rem"><span>VAT (12%)</span><span id="pmVat">₱0.00</span></div>
+              <div class="d-flex justify-content-between fw-800 pt-1" style="border-top:1.5px solid #e2e8f0;font-size:1.05rem">
+                <span>TOTAL</span><span style="color:var(--primary)" id="pmTotal">₱0.00</span>
+              </div>
+            </div>
+            <div class="mt-2 p-2" style="background:#fff;border-radius:9px;border:1px solid #e2e8f0;font-size:.78rem">
+              <div class="d-flex justify-content-between"><span class="text-muted">Customer</span><strong id="pmCustomer">—</strong></div>
+              <div class="d-flex justify-content-between mt-1"><span class="text-muted">Items</span><span id="pmItems">—</span></div>
+              <div class="d-flex justify-content-between mt-1"><span class="text-muted">Date / Time</span><span id="pmDateTime">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-vsms-outline" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back</button>
+        <button class="btn-vsms" id="confirmPayBtn" onclick="processPayment()" style="min-width:150px">
+          <i class="bi bi-check-circle me-1"></i>Confirm Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RECEIPT MODAL ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="rcptModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="bi bi-receipt-cutoff me-2 text-success"></i>Transaction Complete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="rcptBody"></div>
+      <div class="modal-footer">
+        <button class="btn-vsms-outline" onclick="printReceipt()"><i class="bi bi-printer me-1"></i>Print</button>
+        <button class="btn-vsms" data-bs-dismiss="modal" onclick="newSale()"><i class="bi bi-plus-circle me-1"></i>New Sale</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOLD MODAL ═══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="holdModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="bi bi-pause-circle me-2 text-warning"></i>Held Orders</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="holdBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BARCODE PRINT MODAL ══════════════════════════════════════════════════ -->
+<div class="modal fade" id="bcModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content vsms-modal">
+      <div class="modal-header">
+        <h5 class="modal-title fw-700"><i class="bi bi-upc me-2 text-primary"></i>Print Barcode Labels</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-700 small">Product *</label>
+            <select id="bcProd" class="form-select" onchange="bcPreview()" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.86rem">
+              <option value="">— Select product —</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-700 small">Copies</label>
+            <input type="number" id="bcQty" class="form-control" value="1" min="1" max="200" style="border:1.5px solid #e2e8f0;border-radius:9px;text-align:center;font-weight:700">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-700 small">Size</label>
+            <select id="bcSize" class="form-select" onchange="bcPreview()" style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.86rem">
+              <option value="sm">Small</option>
+              <option value="md" selected>Medium</option>
+              <option value="lg">Large</option>
+            </select>
+          </div>
+          <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="bcShowPrice" checked onchange="bcPreview()"><label class="form-check-label fw-700 small" for="bcShowPrice">Price</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="bcShowName" checked onchange="bcPreview()"><label class="form-check-label fw-700 small" for="bcShowName">Name</label></div>
+          </div>
+        </div>
+        <div class="bc-preview-wrap" id="bcPreviewWrap">
+          <span class="text-muted small">Select a product to preview</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-vsms" onclick="printBarcodeLabels()"><i class="bi bi-printer me-1"></i>Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS & STATE
+═══════════════════════════════════════════════════════════ */
+const STORE_NAME = 'VetSupply Management System';
+const STORE_SUB  = 'Veterinary Supply Store';
+const GCASH_NUM  = '09914603699';
+const VAT_RATE   = 0.12;
+
+// Single source of truth
+const cart = new Map();   // Map<product_id, {...product, quantity}>
+let allProds   = [];
+let curCat     = 'all';
+let heldOrders = [];
+let curPM      = 'cash';  // 'cash' | 'gcash' | 'card'
+let curWallet  = 'gcash'; // 'gcash' | 'maya' | 'instapay'
+let curCard    = 'visa';  // 'visa' | 'mastercard' | 'amex'
+let currentTotal = 0;     // authoritative total, set when modal opens
+let camOpen    = false;
+let camScanner = null;
+
+/* ═══════════════════════════════════════════════════════════
+   PRODUCT LOADING & GRID
+═══════════════════════════════════════════════════════════ */
+async function loadProds() {
+  try {
+    const res  = await fetch('/api/pos/products-all');
+    const data = await res.json();
+    allProds = data.products || [];
+    renderGrid();
+    populateBcSelect();
+  } catch(e) {
+    document.getElementById('pgrid').innerHTML =
+      '<div class="grid-msg text-danger"><i class="bi bi-exclamation-circle" style="font-size:1.5rem"></i><p>Failed to load products</p></div>';
+  }
+}
+
+function renderGrid() {
+  const prods = curCat === 'all' ? allProds : allProds.filter(p => p.category === curCat);
+  const g = document.getElementById('pgrid');
+  if (!prods.length) { g.innerHTML = '<div class="grid-msg"><i class="bi bi-search" style="font-size:1.4rem"></i><p class="mt-1">No products</p></div>'; return; }
+  const f = document.createDocumentFragment();
+  prods.forEach(p => {
+    const d = document.createElement('div');
+    d.className = `pc${p.stock <= 0 ? ' oos' : ''}${p.requires_prescription ? ' rx' : ''}`;
+    d.dataset.pid = p.product_id;
+    const inCart = cart.get(p.product_id);
+    d.innerHTML =
+      `<div class="pc-cat">${p.category.replace('Veterinary ','')}</div>` +
+      `<div class="pc-name">${p.product_name}</div>` +
+      `<div class="pc-price">₱${(+p.price).toFixed(2)}</div>` +
+      `<div class="pc-stock">${p.stock > 0 ? p.stock+' '+p.unit : '<span style="color:#dc2626">Out of stock</span>'}</div>` +
+      (inCart ? `<div class="pc-qty">${inCart.quantity}</div>` : '');
+    d.addEventListener('click', () => addToCart(p));
+    f.appendChild(d);
+  });
+  g.innerHTML = '';
+  g.appendChild(f);
+}
+
+function setCat(cat, btn) {
+  curCat = cat;
+  document.querySelectorAll('.cpill').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderGrid();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CART MANAGEMENT
+═══════════════════════════════════════════════════════════ */
+function addToCart(prod) {
+  if (!prod || prod.stock <= 0) return;
+  const existing = cart.get(prod.product_id);
+  if (existing) {
+    if (existing.quantity >= prod.stock) { toast(`Max stock: ${prod.product_name}`, 'w'); return; }
+    existing.quantity++;
+    cart.set(prod.product_id, existing);
+  } else {
+    cart.set(prod.product_id, { ...prod, quantity: 1 });
+  }
+  renderCart();
+  refreshPcBadge(prod.product_id);
+  toast(`${prod.product_name} added`, 's');
+}
+
+function removeFromCart(pid) {
+  cart.delete(pid);
+  const row = document.querySelector(`.ci[data-pid="${pid}"]`);
+  if (row) row.remove();
+  refreshPcBadge(pid);
+  if (!cart.size) showCartEmpty();
+  updateCartHeader();
+  recalc();
+}
+
+function changeQty(pid, delta) {
+  const item = cart.get(pid);
+  if (!item) return;
+  const prod = allProds.find(p => p.product_id === pid);
+  const max = prod ? prod.stock : 9999;
+  const newQ = Math.max(1, Math.min(item.quantity + delta, max));
+  if (newQ === item.quantity) return;
+  item.quantity = newQ;
+  cart.set(pid, item);
+  // fast in-place update
+  const row = document.querySelector(`.ci[data-pid="${pid}"]`);
+  if (row) {
+    const inp = row.querySelector('.qn-in');
+    const amt = row.querySelector('.ci-amt');
+    const sub = row.querySelector('.ci-sub');
+    if (inp) inp.value = newQ;
+    if (amt) amt.textContent = '₱'+(item.price*newQ).toFixed(2);
+    if (sub) sub.textContent = `₱${item.price.toFixed(2)} × ${newQ}`;
+  }
+  refreshPcBadge(pid);
+  updateCartHeader();
+  recalc();
+}
+
+function setQty(pid, val) {
+  const item = cart.get(pid);
+  if (!item) return;
+  const prod = allProds.find(p => p.product_id === pid);
+  const max = prod ? prod.stock : 9999;
+  const newQ = Math.max(1, Math.min(parseInt(val)||1, max));
+  item.quantity = newQ;
+  cart.set(pid, item);
+  const row = document.querySelector(`.ci[data-pid="${pid}"]`);
+  if (row) {
+    const inp = row.querySelector('.qn-in');
+    const amt = row.querySelector('.ci-amt');
+    const sub = row.querySelector('.ci-sub');
+    if (inp) inp.value = newQ;
+    if (amt) amt.textContent = '₱'+(item.price*newQ).toFixed(2);
+    if (sub) sub.textContent = `₱${item.price.toFixed(2)} × ${newQ}`;
+  }
+  refreshPcBadge(pid);
+  updateCartHeader();
+  recalc();
+}
+
+function refreshPcBadge(pid) {
+  const el = document.querySelector(`.pc[data-pid="${pid}"]`);
+  if (!el) return;
+  let b = el.querySelector('.pc-qty');
+  const item = cart.get(pid);
+  if (item) {
+    if (!b) { b = document.createElement('div'); b.className = 'pc-qty'; el.appendChild(b); }
+    b.textContent = item.quantity;
+  } else if (b) b.remove();
+}
+
+function renderCart() {
+  const body = document.getElementById('cartBody');
+  if (!cart.size) { showCartEmpty(); updateCartHeader(); recalc(); return; }
+  let html = '';
+  cart.forEach(item => {
+    html += `<div class="ci" data-pid="${item.product_id}">
+      <div class="ci-info">
+        <div class="ci-name">${item.product_name}</div>
+        <div class="ci-sub">₱${item.price.toFixed(2)} × ${item.quantity}</div>
+      </div>
+      <div class="qc">
+        <button class="qb" data-action="dec" data-pid="${item.product_id}" type="button">−</button>
+        <input class="qn-in" type="number" value="${item.quantity}" min="1" data-pid="${item.product_id}" data-action="qty">
+        <button class="qb" data-action="inc" data-pid="${item.product_id}" type="button">+</button>
+      </div>
+      <div class="ci-amt" id="cia-${item.product_id}">₱${(item.price*item.quantity).toFixed(2)}</div>
+      <button class="rm-ci" data-action="remove" data-pid="${item.product_id}" type="button"><i class="bi bi-x-lg"></i></button>
+    </div>`;
+  });
+  body.innerHTML = html;
+  updateCartHeader();
+  recalc();
+}
+
+function showCartEmpty() {
+  document.getElementById('cartBody').innerHTML =
+    '<div class="cart-empty"><i class="bi bi-cart-x"></i><p class="small">Cart is empty<br><span style="font-size:.72rem;color:#cbd5e1">Scan or click a product</span></p></div>';
+  document.getElementById('payBtn').disabled = true;
+}
+
+function updateCartHeader() {
+  const total = [...cart.values()].reduce((s,i) => s+i.quantity, 0);
+  document.getElementById('cartCnt').textContent = total;
+  document.getElementById('payBtn').disabled = !cart.size;
+}
+
+// Event delegation on cart body
+document.getElementById('cartBody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  e.preventDefault();
+  const pid = parseInt(btn.dataset.pid);
+  const action = btn.dataset.action;
+  if (action === 'dec') changeQty(pid, -1);
+  else if (action === 'inc') changeQty(pid, 1);
+  else if (action === 'remove') removeFromCart(pid);
+});
+document.getElementById('cartBody').addEventListener('change', e => {
+  if (e.target.dataset.action === 'qty') setQty(parseInt(e.target.dataset.pid), e.target.value);
+});
+
+function clearCart() {
+  if (!cart.size) return;
+  if (!confirm('Clear all items?')) return;
+  const pids = [...cart.keys()];
+  cart.clear();
+  showCartEmpty();
+  pids.forEach(refreshPcBadge);
+  updateCartHeader();
+  recalc();
+}
+
+function recalc() {
+  const sub  = [...cart.values()].reduce((s,i) => s+i.price*i.quantity, 0);
+  const disc = Math.max(0, Math.min(100, parseFloat(document.getElementById('discIn').value)||0));
+  const dAmt = sub*(disc/100);
+  const after = sub - dAmt;
+  const vat  = after * VAT_RATE;
+  const tot  = after + vat;
+  document.getElementById('fSub').textContent   = '₱'+sub.toFixed(2);
+  document.getElementById('fVat').textContent   = '₱'+vat.toFixed(2);
+  document.getElementById('fTotal').textContent = '₱'+tot.toFixed(2);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAYMENT MODAL — open, tab switching, per-method logic
+═══════════════════════════════════════════════════════════ */
+function openPayModal() {
+  if (!cart.size) return;
+
+  // Calculate totals fresh
+  const sub  = [...cart.values()].reduce((s,i) => s+i.price*i.quantity, 0);
+  const disc = Math.max(0, Math.min(100, parseFloat(document.getElementById('discIn').value)||0));
+  const dAmt = sub*(disc/100);
+  const after = sub - dAmt;
+  const vat  = after * VAT_RATE;
+  const tot  = parseFloat((after + vat).toFixed(2));
+
+  // Store as authoritative total
+  currentTotal = tot;
+
+  // Populate modal
+  document.getElementById('pmDue').textContent  = '₱'+tot.toFixed(2);
+  document.getElementById('pmSub').textContent  = '₱'+sub.toFixed(2);
+  document.getElementById('pmVat').textContent  = '₱'+vat.toFixed(2);
+  document.getElementById('pmTotal').textContent= '₱'+tot.toFixed(2);
+  document.getElementById('pmDiscPct').textContent = disc;
+  document.getElementById('pmDiscAmt').textContent = '-₱'+dAmt.toFixed(2);
+  document.getElementById('pmDiscRow').style.setProperty('display', disc>0?'flex':'none', 'important');
+  document.getElementById('pmCustomer').textContent = document.getElementById('custName').value || 'Walk-in';
+  document.getElementById('pmItems').textContent    = [...cart.values()].reduce((s,i)=>s+i.quantity,0)+' item(s)';
+  document.getElementById('pmDateTime').textContent = new Date().toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('terminalDate').textContent = new Date().toLocaleDateString('en-PH');
+
+  // Order summary
+  let sumHtml = '';
+  cart.forEach(i => {
+    sumHtml += `<div class="ord-row">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.product_name}</span>
+      <span class="text-muted ms-1">×${i.quantity}</span>
+      <span class="ms-2 fw-700">₱${(i.price*i.quantity).toFixed(2)}</span>
+    </div>`;
+  });
+  document.getElementById('ordSummary').innerHTML = sumHtml;
+
+  // Reset fields
+  document.getElementById('cashAmt').value   = '';
+  document.getElementById('gwRef').value     = '';
+  document.getElementById('txnNotes').value  = '';
+  document.getElementById('refMsg').textContent = '';
+  document.getElementById('chgAmt').textContent = '₱0.00';
+  document.getElementById('changeBox').className = 'change-box';
+  document.getElementById('qrAmtDisplay').textContent = '₱'+tot.toFixed(2);
+
+  // Switch to cash by default
+  selectPM('cash');
+
+  // Generate QR for e-wallet
+  generateQR(tot);
+
+  // Show modal — use getInstance first, create only if needed
+  const modalEl = document.getElementById('payModal');
+  let modal = bootstrap.Modal.getInstance(modalEl);
+  if (!modal) modal = new bootstrap.Modal(modalEl);
+  modal.show();
+}
+
+/* ── Payment method switching ─────────────────────────────── */
+function selectPM(method) {
+  curPM = method;
+  // Update tabs
+  document.querySelectorAll('.pm-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.getElementById('pmTab-'+method);
+  if (activeTab) activeTab.classList.add('active');
+  // Update panes
+  document.querySelectorAll('.pm-pane').forEach(p => p.classList.remove('active'));
+  const activePane = document.getElementById('pmPane-'+method);
+  if (activePane) activePane.classList.add('active');
+}
+
+/* ── Cash ─────────────────────────────────────────────────── */
+function addDenom(amount) {
+  const cur = parseFloat(document.getElementById('cashAmt').value)||0;
+  document.getElementById('cashAmt').value = (cur + amount).toFixed(2);
+  updateChange();
+}
+
+function setExactAmount() {
+  document.getElementById('cashAmt').value = currentTotal.toFixed(2);
+  updateChange();
+}
+
+function updateChange() {
+  const paid = parseFloat(document.getElementById('cashAmt').value)||0;
+  const change = paid - currentTotal;
+  const box = document.getElementById('changeBox');
+  const el  = document.getElementById('chgAmt');
+  if (paid <= 0) {
+    el.textContent = '₱0.00';
+    box.className = 'change-box';
+  } else if (change < 0) {
+    el.textContent = '₱'+Math.abs(change).toFixed(2)+' SHORT';
+    box.className = 'change-box short';
+  } else {
+    el.textContent = '₱'+change.toFixed(2);
+    box.className = 'change-box';
+  }
+}
+
+/* ── GCash QR ─────────────────────────────────────────────── */
+function generateQR(amount) {
+  const canvas = document.getElementById('qrCanvas');
+  const ctx = canvas.getContext('2d');
+  const ref = 'VSMS'+Date.now().toString().slice(-8);
+  document.getElementById('qrRefDisplay').textContent = 'Ref: '+ref;
+  document.getElementById('qrAmtDisplay').textContent = '₱'+amount.toFixed(2);
+  // Draw QR pattern
+  const sz = 180;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,sz,sz);
+  const cells = 23; const cs = sz/cells;
+  ctx.fillStyle = '#000';
+  [[0,0],[cells-7,0],[0,cells-7]].forEach(([cx,cy]) => {
+    ctx.fillRect(cx*cs,cy*cs,7*cs,7*cs);
+    ctx.fillStyle='#fff'; ctx.fillRect((cx+1)*cs,(cy+1)*cs,5*cs,5*cs);
+    ctx.fillStyle='#000'; ctx.fillRect((cx+2)*cs,(cy+2)*cs,3*cs,3*cs);
+  });
+  const payload = `${curWallet.toUpperCase()}|${GCASH_NUM}|${amount.toFixed(2)}|${ref}`;
+  let h = 0;
+  for(let i=0;i<payload.length;i++) h=(Math.imul(31,h)+payload.charCodeAt(i))|0;
+  const rng=()=>{ h=(Math.imul(1664525,h)+1013904223)|0; return(h>>>0)/4294967296; };
+  for(let r=0;r<cells;r++) for(let c=0;c<cells;c++) {
+    if((r<8&&c<8)||(r<8&&c>cells-9)||(r>cells-9&&c<8)) continue;
+    if(rng()>.48){ ctx.fillStyle='#000'; ctx.fillRect(c*cs,r*cs,cs,cs); }
+  }
+}
+
+function setWallet(w, btn) {
+  curWallet = w;
+  document.querySelectorAll('.wt').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const names = {gcash:'GCash',maya:'Maya',instapay:'InstaPay'};
+  const classes = {gcash:'lbl-gcash',maya:'lbl-maya',instapay:'lbl-instapay'};
+  const lbl = document.getElementById('walletBrandLbl');
+  lbl.textContent = names[w]; lbl.className = classes[w];
+  document.getElementById('walletAppName').textContent = names[w];
+  generateQR(currentTotal);
+}
+
+function validateRef() {
+  const v = document.getElementById('gwRef').value.trim();
+  const msg = document.getElementById('refMsg');
+  msg.className = v.length>=6 ? 'form-text text-success' : 'form-text text-muted';
+  msg.textContent = v.length>=6 ? '✓ Reference looks valid' : 'Enter the reference from your app';
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+function setCardType(type, btn) {
+  curCard = type;
+  document.querySelectorAll('.ct').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROCESS PAYMENT
+═══════════════════════════════════════════════════════════ */
+async function processPayment() {
+  // Validate by payment method
+  if (curPM === 'cash') {
+    const paid = parseFloat(document.getElementById('cashAmt').value)||0;
+    if (paid <= 0) { toast('Enter the amount tendered', 'w'); return; }
+    if (paid < currentTotal) { toast('Amount paid is less than total!', 'd'); return; }
+  }
+  if (curPM === 'gcash') {
+    const ref = document.getElementById('gwRef').value.trim();
+    if (ref.length < 6) { toast('Enter a valid reference number (min 6 digits)', 'w'); return; }
+  }
+
+  const btn = document.getElementById('confirmPayBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing…';
+
+  // Determine payment method string
+  let pmMethod = curPM === 'cash' ? 'cash' : curPM === 'gcash' ? curWallet : curCard;
+
+  // Amount paid
+  const amountPaid = curPM === 'cash'
+    ? parseFloat(document.getElementById('cashAmt').value)||0
+    : currentTotal;
+
+  // Extra payment details for receipt
+  const pmDetails = { method: curPM };
+  if (curPM === 'gcash') {
+    pmDetails.wallet = curWallet;
+    pmDetails.ref    = document.getElementById('gwRef').value.trim();
+  }
+  if (curPM === 'card') {
+    pmDetails.cardType = curCard;
+    pmDetails.last4    = document.getElementById('cardLast4').value;
+    pmDetails.approval = document.getElementById('cardApproval').value;
+    pmDetails.holder   = document.getElementById('cardName').value;
+    pmDetails.txnType  = document.getElementById('cardTxnType').value;
+  }
+
+  const disc = Math.max(0, Math.min(100, parseFloat(document.getElementById('discIn').value)||0));
+  const payload = {
+    items: [...cart.values()].map(i => ({
+      product_id: i.product_id, product_name: i.product_name,
+      quantity: i.quantity, price: i.price
+    })),
+    customer_name:    document.getElementById('custName').value.trim() || 'Walk-in Customer',
+    discount_percent: disc,
+    payment_method:   pmMethod,
+    amount_paid:      amountPaid,
+    notes:            document.getElementById('txnNotes').value.trim(),
+    include_vat:      true
+  };
+
+  try {
+    const res = await fetch('/api/pos/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(()=>({}));
+      throw new Error(errData.message || `Server error ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (data.success) {
+      // Update local stock cache
+      data.items.forEach(si => {
+        const p = allProds.find(x => x.product_id === si.product_id);
+        if (p) p.stock = Math.max(0, p.stock - si.quantity);
+      });
+      // Hide payment modal
+      const payModalEl = document.getElementById('payModal');
+      bootstrap.Modal.getInstance(payModalEl)?.hide();
+      // Show receipt
+      buildReceipt(data, pmDetails, amountPaid);
+      // Re-render grid to update stock numbers
+      renderGrid();
+    } else {
+      throw new Error(data.message || 'Payment failed');
+    }
+  } catch(err) {
+    toast(err.message || 'Network error — try again', 'd');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirm Payment';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RECEIPT
+═══════════════════════════════════════════════════════════ */
+function buildReceipt(data, pm, amountPaid) {
+  const t   = data.transaction;
+  const its = data.items;
+  const change = Math.max(0, amountPaid - t.total_amount);
+
+  const pmLabel = pm.method === 'gcash'
+    ? `${(pm.wallet||'gcash').toUpperCase()} — Ref: ${pm.ref||'—'}`
+    : pm.method === 'card'
+    ? `${(pm.cardType||'card').toUpperCase()} ••••${pm.last4||'----'} (${pm.approval||'—'})`
+    : 'CASH';
+
+  const vatAmt = data.vat_amount || (t.total_amount * VAT_RATE / (1+VAT_RATE));
+
+  let html = `<div class="rcpt" id="printRcptEl">
+    <div class="rcpt-center" style="margin-bottom:.4rem">
+      <div style="font-size:1.5rem">🐾</div>
+      <div style="font-weight:800;font-size:13px">${STORE_NAME}</div>
+      <div style="font-size:11px;color:#777">${STORE_SUB}</div>
+      <div style="font-size:10px;color:#aaa">${new Date().toLocaleString('en-PH')}</div>
+    </div>
+    <hr class="rcpt-divider">
+    <div style="font-size:11px;display:flex;justify-content:space-between">
+      <span>TXN: <strong>${t.transaction_code}</strong></span>
+      <span>Cashier #${t.cashier_id}</span>
+    </div>
+    <div style="font-size:11px;margin:.2rem 0">Customer: <strong>${t.customer_name}</strong></div>
+    <hr class="rcpt-divider">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1px solid #eee">
+        <th style="text-align:left;font-size:10px;padding:2px 0">ITEM</th>
+        <th style="text-align:center;font-size:10px">QTY</th>
+        <th style="text-align:right;font-size:10px">AMT</th>
+      </tr></thead><tbody>`;
+
+  its.forEach(i => {
+    html += `<tr>
+      <td style="padding:2px 0;font-size:11px">${i.product_name}<br>
+        <span style="color:#aaa;font-size:10px">₱${i.unit_price.toFixed(2)} ea</span></td>
+      <td style="text-align:center;font-size:11px">${i.quantity}</td>
+      <td style="text-align:right;font-size:11px;font-weight:700">₱${i.total_price.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>
+    <hr class="rcpt-divider">
+    <div class="rcpt-row"><span>Subtotal</span><span>₱${t.subtotal.toFixed(2)}</span></div>`;
+
+  if (t.discount_amount > 0)
+    html += `<div class="rcpt-row" style="color:#dc2626"><span>Discount (${t.discount_percent}%)</span><span>-₱${t.discount_amount.toFixed(2)}</span></div>`;
+
+  html += `<div class="rcpt-row" style="color:#aaa;font-size:10px"><span>VAT (12%)</span><span>₱${vatAmt.toFixed(2)}</span></div>
+    <div class="rcpt-total"><span>TOTAL</span><span>₱${t.total_amount.toFixed(2)}</span></div>
+    <hr class="rcpt-divider">
+    <div class="rcpt-pay">
+      <div style="font-weight:700;margin-bottom:3px">PAYMENT: ${pmLabel}</div>`;
+
+  if (pm.method === 'cash') {
+    html += `<div class="rcpt-row"><span>Tendered</span><span>₱${amountPaid.toFixed(2)}</span></div>
+             <div class="rcpt-row" style="font-weight:700"><span>Change</span><span>₱${change.toFixed(2)}</span></div>`;
+  }
+  if (t.notes) html += `<div style="font-size:10px;margin-top:3px">Notes: ${t.notes}</div>`;
+
+  html += `</div>
+    <hr class="rcpt-divider">
+    <div class="rcpt-center" style="font-size:10px;color:#aaa">
+      Thank you for your purchase! 🐾<br>
+      <span style="font-size:9px">Items sold are non-refundable without receipt.</span>
+    </div>
+  </div>`;
+
+  document.getElementById('rcptBody').innerHTML = html;
+
+  const rcptEl = document.getElementById('rcptModal');
+  let rcptModal = bootstrap.Modal.getInstance(rcptEl);
+  if (!rcptModal) rcptModal = new bootstrap.Modal(rcptEl);
+  rcptModal.show();
+}
+
+function printReceipt() {
+  const el = document.getElementById('printRcptEl');
+  if (!el) return;
+  const w = window.open('','_blank','width=380,height=680');
+  if (!w) { toast('Pop-up blocked! Allow pop-ups to print.','w'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Courier New',monospace;padding:10px;background:#fff}
+    .rcpt{max-width:300px;margin:0 auto}.rcpt-center{text-align:center}.rcpt-divider{border:none;border-top:1px dashed #ccc;margin:4px 0}
+    .rcpt-row{display:flex;justify-content:space-between;margin:1px 0;font-size:11px}.rcpt-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin:2px 0}
+    .rcpt-pay{background:#f9f9f9;border:1px solid #eee;padding:4px 6px;margin:3px 0;font-size:11px}
+    @media print{body{padding:2px}}</style>
+  </head><body>${el.outerHTML}
+  <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+function newSale() {
+  const pids = [...cart.keys()];
+  cart.clear();
+  showCartEmpty();
+  pids.forEach(refreshPcBadge);
+  document.getElementById('discIn').value = '0';
+  document.getElementById('custName').value = 'Walk-in Customer';
+  updateCartHeader();
+  recalc();
+  loadProds(); // refresh stock
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BARCODE SCANNER
+═══════════════════════════════════════════════════════════ */
+document.getElementById('barcodeIn').addEventListener('keydown', async function(e) {
+  if (e.key === 'Enter') {
+    const code = this.value.trim();
+    if (!code) return;
+    this.value = '';
+    await lookupBarcode(code);
+    this.select();
+  }
+});
+
+async function lookupBarcode(code) {
+  // Local lookup first (fast)
+  const local = allProds.find(p => p.barcode === code);
+  if (local) { addToCart(local); return; }
+  // Fallback to server
+  try {
+    const res = await fetch(`/api/products/barcode/${encodeURIComponent(code)}`);
+    if (res.ok) {
+      const d = await res.json();
+      if (d.product) { addToCart(d.product); }
+      else { toast('Product not found: '+code, 'w'); }
+    } else { toast('Product not found: '+code, 'w'); }
+  } catch { toast('Barcode lookup failed','d'); }
+}
+
+/* ── Camera scanner ──────────────────────────────────────── */
+function toggleCam() {
+  const area = document.getElementById('camArea');
+  const txt  = document.getElementById('camTxt');
+  if (!camOpen) {
+    area.style.display = 'block';
+    txt.textContent = 'Stop';
+    camOpen = true;
+    camScanner = new Html5QrcodeScanner('camReader', {fps:10, qrbox:{width:260,height:130}});
+    camScanner.render(async code => {
+      camScanner.pause();
+      await lookupBarcode(code);
+      setTimeout(() => camScanner.resume && camScanner.resume(), 1800);
+    });
+  } else {
+    if (camScanner) { camScanner.clear().catch(()=>{}); camScanner = null; }
+    area.style.display = 'none';
+    txt.textContent = 'Camera';
+    camOpen = false;
+  }
+}
+
+/* ── Search dropdown ─────────────────────────────────────── */
+let srchTimer;
+document.getElementById('srchIn').addEventListener('input', function() {
+  clearTimeout(srchTimer);
+  const q = this.value.trim().toLowerCase();
+  const dd = document.getElementById('srchDd');
+  if (q.length < 1) { dd.style.display='none'; return; }
+  srchTimer = setTimeout(() => {
+    const hits = allProds.filter(p =>
+      p.product_name.toLowerCase().includes(q) ||
+      (p.brand||'').toLowerCase().includes(q) ||
+      (p.barcode||'').includes(q)
+    ).slice(0,12);
+    if (!hits.length) { dd.style.display='none'; return; }
+    dd.innerHTML = hits.map(p =>
+      `<div class="sd-item${p.stock<=0?' text-muted':''}" data-pid="${p.product_id}">
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.product_name}</div>
+        <div style="font-size:.68rem;color:#94a3b8">${p.category} · ${p.stock} ${p.unit}</div></div>
+        <span style="font-weight:800;color:var(--primary);font-size:.83rem;flex-shrink:0">₱${(+p.price).toFixed(2)}</span>
+      </div>`
+    ).join('');
+    dd.style.display = 'block';
+    dd.querySelectorAll('.sd-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const p = hits.find(x => x.product_id == el.dataset.pid);
+        if (p) { addToCart(p); document.getElementById('srchIn').value=''; dd.style.display='none'; }
+      });
+    });
+  }, 180);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#srchIn') && !e.target.closest('#srchDd'))
+    document.getElementById('srchDd').style.display = 'none';
+});
+
+/* ═══════════════════════════════════════════════════════════
+   HOLD ORDERS
+═══════════════════════════════════════════════════════════ */
+function holdOrder() {
+  if (!cart.size) { toast('Cart is empty','w'); return; }
+  const sub = [...cart.values()].reduce((s,i)=>s+i.price*i.quantity,0);
+  heldOrders.push({
+    label: `Order #${heldOrders.length+1} · ${cart.size} product(s) · ₱${sub.toFixed(2)}`,
+    items: new Map(cart),
+    customer: document.getElementById('custName').value
+  });
+  const pids = [...cart.keys()];
+  cart.clear();
+  showCartEmpty();
+  pids.forEach(refreshPcBadge);
+  updateCartHeader();
+  recalc();
+  const hc = document.getElementById('holdCnt');
+  hc.textContent = heldOrders.length;
+  hc.style.display = '';
+  toast('Order held','i');
+}
+
+function openHoldModal() {
+  const body = document.getElementById('holdBody');
+  body.innerHTML = heldOrders.length ? heldOrders.map((h,idx) => `
+    <div class="hold-card">
+      <div style="flex:1"><div class="fw-700 small">${h.label}</div>
+        <div class="text-muted" style="font-size:.72rem">Customer: ${h.customer}</div></div>
+      <button class="btn-vsms btn-vsms-sm" onclick="recallHeld(${idx})">Recall</button>
+      <button class="btn-icon btn-delete ms-1" onclick="deleteHeld(${idx})"><i class="bi bi-trash3"></i></button>
+    </div>`).join('')
+    : '<div class="empty-state py-4"><i class="bi bi-inbox"></i><p>No held orders</p></div>';
+  const el = document.getElementById('holdModal');
+  let m = bootstrap.Modal.getInstance(el);
+  if (!m) m = new bootstrap.Modal(el);
+  m.show();
+}
+
+function recallHeld(idx) {
+  if (cart.size && !confirm('Replace current cart?')) return;
+  const h = heldOrders.splice(idx,1)[0];
+  cart.clear();
+  h.items.forEach((v,k) => cart.set(k,v));
+  document.getElementById('custName').value = h.customer;
+  renderCart();
+  [...cart.keys()].forEach(refreshPcBadge);
+  const hc = document.getElementById('holdCnt');
+  hc.textContent = heldOrders.length;
+  hc.style.display = heldOrders.length ? '' : 'none';
+  bootstrap.Modal.getInstance(document.getElementById('holdModal'))?.hide();
+  toast('Order recalled','s');
+}
+
+function deleteHeld(idx) {
+  heldOrders.splice(idx,1);
+  const hc = document.getElementById('holdCnt');
+  hc.textContent = heldOrders.length;
+  hc.style.display = heldOrders.length ? '' : 'none';
+  openHoldModal();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BARCODE LABEL PRINTING
+═══════════════════════════════════════════════════════════ */
+function populateBcSelect() {
+  const sel = document.getElementById('bcProd');
+  sel.innerHTML = '<option value="">— Select product —</option>';
+  allProds.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.product_id;
+    o.textContent = p.product_name;
+    o.dataset.bc = p.barcode||'';
+    o.dataset.price = p.price;
+    o.dataset.name = p.product_name;
+    sel.appendChild(o);
+  });
+}
+
+function openBcModal() {
+  bcPreview();
+  const el = document.getElementById('bcModal');
+  let m = bootstrap.Modal.getInstance(el);
+  if (!m) m = new bootstrap.Modal(el);
+  m.show();
+}
+
+function bcPreview() {
+  const sel = document.getElementById('bcProd');
+  const opt = sel.options[sel.selectedIndex];
+  const wrap = document.getElementById('bcPreviewWrap');
+  if (!opt||!opt.value) { wrap.innerHTML='<span class="text-muted small">Select a product to preview</span>'; return; }
+  wrap.innerHTML = `<div class="bc-label">${makeBcSVG(opt.dataset.name, opt.dataset.bc, parseFloat(opt.dataset.price||0))}</div>`;
+}
+
+function makeBcSVG(name, barcode, price) {
+  const size = document.getElementById('bcSize')?.value || 'md';
+  const showP = document.getElementById('bcShowPrice')?.checked ?? true;
+  const showN = document.getElementById('bcShowName')?.checked ?? true;
+  const cfg = {sm:{w:160,bh:28,bw:1.0,fs:8}, md:{w:210,bh:40,bw:1.4,fs:9}, lg:{w:280,bh:55,bw:1.9,fs:10}};
+  const c = cfg[size]||cfg.md;
+  const bars = makeCode128(barcode||'000000');
+  const totalW = bars.length*c.bw;
+  const ox = (c.w-totalW)/2;
+  let parts=[], yy=5;
+  if (showN) {
+    const nm = name.length>28 ? name.substring(0,28)+'…' : name;
+    parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="700" fill="#0f172a">${xmlEsc(nm)}</text>`);
+    yy += c.fs+4;
+  }
+  let bx=ox;
+  bars.forEach(on => { if(on) parts.push(`<rect x="${bx.toFixed(2)}" y="${yy}" width="${c.bw.toFixed(2)}" height="${c.bh}" fill="#000"/>`); bx+=c.bw; });
+  yy+=c.bh+2;
+  parts.push(`<text x="${c.w/2}" y="${yy+8}" text-anchor="middle" font-family="monospace" font-size="8" fill="#475569">${xmlEsc(barcode||'')}</text>`);
+  yy+=11;
+  if (showP) { parts.push(`<text x="${c.w/2}" y="${yy+c.fs}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${c.fs}" font-weight="800" fill="#1e3a5f">₱${parseFloat(price).toFixed(2)}</text>`); yy+=c.fs+3; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${c.w}" height="${yy+4}" style="display:block;background:#fff">${parts.join('')}</svg>`;
+}
+
+function xmlEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function makeCode128(text) {
+  const P={0:'11011001100',1:'11001101100',2:'11001100110',3:'10010011000',4:'10010001100',5:'10001001100',6:'10011001000',7:'10011000100',8:'10001100100',9:'11001001000',10:'11001000100',11:'11000100100',12:'10110011100',13:'10011011100',14:'10011001110',15:'10111001100',16:'10011101100',17:'10011100110',18:'11001110010',19:'11001011100',20:'11001001110',21:'11011100100',22:'11001110100',23:'11101101110',24:'11101001100',25:'11100101100',26:'11100100110',27:'11101100100',28:'11100110100',29:'11100110010',30:'11011011000',31:'11011000110',32:'11000110110',33:'10100011000',34:'10001011000',35:'10001000110',36:'10110001000',37:'10001101000',38:'10001100010',39:'11010001000',40:'11000101000',41:'11000100010',42:'10110111000',43:'10110001110',44:'10001101110',45:'10111011000',46:'10111000110',47:'10001110110',48:'11101110110',49:'11010001110',50:'11000101110',51:'11011101000',52:'11011100010',53:'11011101110',54:'11101011000',55:'11101000110',56:'11100010110',57:'11101101000',58:'11101100010',59:'11100011010',60:'11101111010',61:'11001000010',62:'11110001010',63:'10100110000',64:'10100001100',65:'10010110000',66:'10010000110',67:'10000101100',68:'10000100110',69:'10110010000',70:'10110000100',71:'10011010000',72:'10011000010',73:'10000110100',74:'10000110010',75:'11000010010',76:'11001010000',77:'11110111010',78:'11000010100',79:'10001111010',80:'10100111100',81:'10010111100',82:'10010011110',83:'10111100100',84:'10011110100',85:'10011110010',86:'11110100100',87:'11110010100',88:'11110010010',89:'11011011110',90:'11011110110',91:'11110110110',92:'10101111000',93:'10100011110',94:'10001011110',95:'10111101000',96:'10111100010',97:'11110101000',98:'11110100010',99:'10111011110',100:'10111101110',101:'11101011110',102:'11110101110',103:'11010000100',104:'11010010000',105:'11010011110',106:'11000111010'};
+  const B_START=104,STOP=106;
+  const chars=text.split('').map(c=>c.charCodeAt(0)-32);
+  const vals=[B_START,...chars];
+  let chk=B_START; chars.forEach((v,i)=>chk=(chk+(i+1)*v)%103);
+  vals.push(chk,STOP);
+  let bits=''; vals.forEach(v=>bits+=(P[v]||P[0])); bits+='11';
+  return bits.split('').map(b=>b==='1');
+}
+
+function printBarcodeLabels() {
+  const sel = document.getElementById('bcProd');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt||!opt.value) { toast('Select a product first','w'); return; }
+  const qty = Math.max(1, Math.min(200, parseInt(document.getElementById('bcQty').value)||1));
+  const labels = Array.from({length:qty}, ()=>`<div class="lbl">${makeBcSVG(opt.dataset.name, opt.dataset.bc, parseFloat(opt.dataset.price||0))}</div>`).join('');
+  const w = window.open('','_blank','width=800,height=650');
+  if (!w) { toast('Pop-up blocked! Allow pop-ups to print.','w'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>Labels</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;padding:8px;font-family:Arial,sans-serif}
+  .wrap{display:flex;flex-wrap:wrap;gap:5px}.lbl{border:1px dashed #ccc;padding:4px 5px;background:#fff;break-inside:avoid}
+  svg{display:block}@media print{body{padding:2px}.lbl{border-color:#999}@page{margin:5mm}}</style></head>
+  <body><div class="wrap">${labels}</div>
+  <script>window.onload=function(){setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},200);};<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+═══════════════════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') { if(e.key==='Escape') e.target.blur(); return; }
+  switch(e.key) {
+    case 'F2': e.preventDefault(); document.getElementById('barcodeIn').focus(); break;
+    case 'F4': e.preventDefault(); document.getElementById('srchIn').focus(); break;
+    case 'F8': e.preventDefault(); if(!document.getElementById('payBtn').disabled) openPayModal(); break;
+    case 'F9': e.preventDefault(); holdOrder(); break;
+    case 'Delete': e.preventDefault(); clearCart(); break;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════ */
+const _tq=[]; let _tb=false;
+function toast(msg,type='s'){_tq.push({msg,type});if(!_tb)_nextToast();}
+const _ico={s:'check-circle-fill',d:'exclamation-circle-fill',w:'exclamation-triangle-fill',i:'info-circle-fill'};
+function _nextToast(){
+  if(!_tq.length){_tb=false;return;}_tb=true;
+  const{msg,type}=_tq.shift();
+  const el=document.createElement('div');
+  el.className=`pos-toast t${type}`;
+  el.innerHTML=`<i class="bi bi-${_ico[type]||_ico.s} me-1"></i>${msg}`;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>{el.remove();setTimeout(_nextToast,80);},320);},2500);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BroadcastChannel (mobile scanner → POS)
+═══════════════════════════════════════════════════════════ */
+if (typeof BroadcastChannel !== 'undefined') {
+  const scanCh = new BroadcastChannel('vsms_scan');
+  scanCh.onmessage = e => {
+    if (e.data?.type === 'ADD_TO_CART' && e.data.product) {
+      addToCart(e.data.product);
+      toast('📱 '+e.data.product.product_name+' added from mobile', 'i');
+    }
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+showCartEmpty();
+loadProds();
+document.getElementById('barcodeIn').focus();
+</script>
+{% endblock %}

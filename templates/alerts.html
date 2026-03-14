@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Alerts — VSMS{% endblock %}
+{% block page_title %}System Alerts{% endblock %}
+{% block content %}
+<div class="page-actions-bar">
+    <div class="d-flex gap-3">
+        <div class="stat-pill stat-danger"><i class="bi bi-x-octagon me-1"></i>{{ counts.expired }} Expired</div>
+        <div class="stat-pill stat-warning"><i class="bi bi-clock-history me-1"></i>{{ counts.expiring }} Expiring</div>
+        <div class="stat-pill stat-info"><i class="bi bi-exclamation-triangle me-1"></i>{{ counts.low_stock }} Low Stock</div>
+    </div>
+    <button class="btn-vsms-outline" onclick="markAllRead()"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
+</div>
+<div class="table-card">
+    {% if alerts %}
+    <div id="alert-list">
+        {% for a in alerts %}
+        <div class="alert-item {{ 'unread' if not a.is_read else '' }} {{ a.alert_type }}" id="alert-{{ a.alert_id }}">
+            <div class="alert-icon-wrap">
+                {% if a.alert_type == 'expired' %}<i class="bi bi-x-octagon-fill text-danger"></i>
+                {% elif a.alert_type == 'expiring' %}<i class="bi bi-clock-history text-warning"></i>
+                {% else %}<i class="bi bi-exclamation-triangle-fill text-info"></i>{% endif %}
+            </div>
+            <div class="alert-content">
+                <p class="alert-msg">{{ a.message }}</p>
+                <p class="alert-time">{{ a.created_at[:16] }}</p>
+            </div>
+            {% if not a.is_read %}
+            <button class="btn-icon btn-view" onclick="markRead({{ a.alert_id }})" title="Mark as read"><i class="bi bi-check2"></i></button>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state success-empty py-5">
+        <i class="bi bi-shield-check-fill"></i>
+        <p>No active alerts! Everything looks good.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function markRead(id) {
+    await fetch(`/api/alerts/mark-read/${id}`, { method: 'POST' });
+    document.getElementById(`alert-${id}`)?.classList.remove('unread');
+}
+async function markAllRead() {
+    await fetch('/api/alerts/mark-all-read', { method: 'POST' });
+    document.querySelectorAll('.alert-item').forEach(el => el.classList.remove('unread'));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Reports — VSMS{% endblock %}
+{% block page_title %}Sales Reports & Analytics{% endblock %}
+
+{% block content %}
+<!-- Summary Stats -->
+<div class="stats-row mb-4">
+    <div class="stat-card stat-success">
+        <div class="stat-icon"><i class="bi bi-calendar-day"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">₱{{ "%.2f"|format(summary.today_revenue) }}</div>
+            <div class="stat-label">Today's Revenue</div>
+        </div>
+    </div>
+    <div class="stat-card stat-primary">
+        <div class="stat-icon"><i class="bi bi-calendar-month"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">₱{{ "%.2f"|format(summary.monthly_revenue) }}</div>
+            <div class="stat-label">Monthly Revenue</div>
+        </div>
+    </div>
+    <div class="stat-card stat-purple">
+        <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">₱{{ "%.2f"|format(summary.yearly_revenue) }}</div>
+            <div class="stat-label">Yearly Revenue</div>
+        </div>
+    </div>
+    <div class="stat-card stat-info">
+        <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">{{ summary.total_transactions }}</div>
+            <div class="stat-label">Total Transactions</div>
+        </div>
+    </div>
+    <div class="stat-card stat-warning">
+        <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+        <div class="stat-body">
+            <div class="stat-value">₱{{ "%.2f"|format(summary.monthly_profit) }}</div>
+            <div class="stat-label">Monthly Profit</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-row mb-4">
+    <div class="chart-card chart-wide">
+        <div class="card-header-vsms">
+            <h3>Daily Sales (Last 30 Days)</h3>
+        </div>
+        <canvas id="dailyChart" height="90"></canvas>
+    </div>
+    <div class="chart-card">
+        <div class="card-header-vsms">
+            <h3>Sales by Category</h3>
+        </div>
+        <canvas id="categoryChart" height="160"></canvas>
+    </div>
+</div>
+
+<div class="charts-row mb-4">
+    <div class="chart-card" style="flex:1">
+        <div class="card-header-vsms">
+            <h3>Monthly Revenue (12 Months)</h3>
+        </div>
+        <canvas id="monthlyChart" height="90"></canvas>
+    </div>
+</div>
+
+<!-- Best Sellers Table -->
+<div class="table-card">
+    <div class="card-header-vsms">
+        <h3><i class="bi bi-trophy-fill text-warning me-2"></i>Top 10 Best Selling Products</h3>
+    </div>
+    {% if best_sellers %}
+    <div class="table-responsive">
+        <table class="vsms-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Units Sold</th>
+                    <th>Revenue</th>
+                    <th>Profit</th>
+                    <th>Margin</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in best_sellers %}
+                {% set margin = ((p.profit / p.revenue) * 100) if p.revenue > 0 else 0 %}
+                <tr>
+                    <td><span class="rank-badge rank-{{ loop.index if loop.index <= 3 else 'default' }}">{{ loop.index }}</span></td>
+                    <td><strong>{{ p.product_name }}</strong></td>
+                    <td><span class="cat-badge">{{ p.category }}</span></td>
+                    <td><span class="badge bg-success-soft fw-600">{{ p.total_sold }} {{ p.unit }}</span></td>
+                    <td class="fw-600">₱{{ "%.2f"|format(p.revenue) }}</td>
+                    <td class="fw-600 text-success">₱{{ "%.2f"|format(p.profit) }}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="mini-bar-wrap">
+                                <div class="mini-bar" style="width:{{ [margin, 100] | min }}%"></div>
+                            </div>
+                            <span class="small fw-600">{{ "%.1f"|format(margin) }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state py-5">
+        <i class="bi bi-bar-chart"></i>
+        <p>No sales data available yet</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Audit Log Section -->
+<div class="table-card mt-4">
+    <div class="card-header-vsms">
+        <h3><i class="bi bi-shield-check me-2 text-info"></i>Audit Trail</h3>
+        <button class="btn-vsms-sm" onclick="loadAuditLog()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+    </div>
+    <div id="audit-log-container">
+        <div class="text-center py-4"><div class="spinner-border text-success"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dailyLabels = {{ daily_data | map(attribute='date') | list | tojson }};
+const dailyValues = {{ daily_data | map(attribute='amount') | list | tojson }};
+const monthlyLabels = {{ monthly_data | map(attribute='month') | list | tojson }};
+const monthlyValues = {{ monthly_data | map(attribute='revenue') | list | tojson }};
+const catLabels = {{ category_sales | map(attribute='category') | list | tojson }};
+const catValues = {{ category_sales | map(attribute='revenue') | list | tojson }};
+
+Chart.defaults.font.family = 'DM Sans';
+
+new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+        labels: dailyLabels,
+        datasets: [{
+            label: 'Daily Sales (₱)',
+            data: dailyValues,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#3b82f6',
+            pointRadius: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' },
+                 ticks: { callback: v => '₱' + v.toLocaleString() }},
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
+        }
+    }
+});
+
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: monthlyLabels,
+        datasets: [{
+            label: 'Revenue (₱)',
+            data: monthlyValues,
+            backgroundColor: monthlyValues.map((v, i) => i === monthlyValues.length - 1 ? '#3b82f6' : 'rgba(34,197,94,0.4)'),
+            borderRadius: 8,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { callback: v => '₱' + v.toLocaleString() }},
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+const catColors = ['#3b82f6','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: catLabels,
+        datasets: [{ data: catValues.map(v => Math.round(v)), backgroundColor: catColors, borderWidth: 3, borderColor: '#fff' }]
+    },
+    options: {
+        responsive: true, cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
+    }
+});
+
+async function loadAuditLog() {
+    const res = await fetch('/api/reports/audit-log');
+    const data = await res.json();
+    if (data.logs.length === 0) {
+        document.getElementById('audit-log-container').innerHTML = '<div class="empty-state py-4"><i class="bi bi-journal"></i><p>No audit logs yet</p></div>';
+        return;
+    }
+    let html = '<div class="table-responsive"><table class="vsms-table"><thead><tr><th>Date/Time</th><th>User</th><th>Action</th><th>Module</th><th>Description</th></tr></thead><tbody>';
+    for (const log of data.logs) {
+        html += `<tr>
+            <td class="text-muted small">${log.created_at?.substring(0,16) || '—'}</td>
+            <td>${log.user_name || 'System'}</td>
+            <td><span class="action-badge ${log.action.toLowerCase()}">${log.action}</span></td>
+            <td><span class="cat-badge">${log.module}</span></td>
+            <td class="small">${log.description || '—'}</td>
+        </tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('audit-log-container').innerHTML = html;
+}
+loadAuditLog();
+</script>
+{% endblock %}
