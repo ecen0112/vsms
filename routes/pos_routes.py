@@ -311,3 +311,96 @@ def transactions():
 @login_required
 def mobile_scan():
     return render_template('mobile_scan.html')
+
+# ─── Mobile Scan Session API ──────────────────────────────────────────────────
+
+@pos_bp.route('/api/scan-session/info')
+@login_required
+def scan_session_info():
+    """Return or create the current user's scan session id."""
+    import secrets, json as _json
+    uid = session['user_id']
+    conn = get_db()
+    existing = conn.execute(
+        "SELECT session_id FROM scan_sessions WHERE user_id=?", (uid,)
+    ).fetchone()
+    if existing:
+        sid = existing['session_id']
+    else:
+        sid = secrets.token_hex(8)
+        conn.execute(
+            "INSERT INTO scan_sessions (session_id, user_id) VALUES (?,?)", (sid, uid)
+        )
+        conn.commit()
+    conn.close()
+    return jsonify({'session_id': sid})
+
+@pos_bp.route('/api/scan-session/push', methods=['POST'])
+@login_required
+def scan_push():
+    """Mobile scanner pushes a product into the queue for the POS tab."""
+    import json as _json
+    data = request.get_json()
+    product = data.get('product')
+    if not product:
+        return jsonify({'success': False, 'message': 'No product'}), 400
+    uid = session['user_id']
+    conn = get_db()
+    row = conn.execute(
+        "SELECT session_id FROM scan_sessions WHERE user_id=?", (uid,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'success': False, 'message': 'No active POS session. Open POS page first.'}), 400
+    conn.execute(
+        "INSERT INTO scan_queue (session_id, product_id, product_json) VALUES (?,?,?)",
+        (row['session_id'], int(product['product_id']), _json.dumps(product))
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+@pos_bp.route('/api/scan-session/poll')
+@login_required
+def scan_poll():
+    """POS polls for new items pushed from mobile. Returns unread items and marks them consumed."""
+    import json as _json
+    uid = session['user_id']
+    conn = get_db()
+    row = conn.execute(
+        "SELECT session_id FROM scan_sessions WHERE user_id=?", (uid,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'items': []})
+    sid = row['session_id']
+    rows = conn.execute(
+        "SELECT queue_id, product_json FROM scan_queue WHERE session_id=? AND consumed=0 ORDER BY queue_id ASC",
+        (sid,)
+    ).fetchall()
+    if rows:
+        ids = [r['queue_id'] for r in rows]
+        conn.execute(
+            "UPDATE scan_queue SET consumed=1 WHERE queue_id IN ({})".format(','.join('?'*len(ids))),
+            ids
+        )
+        conn.commit()
+    conn.close()
+    products = [_json.loads(r['product_json']) for r in rows]
+    return jsonify({'items': products})
+
+@pos_bp.route('/api/scan-session/reset', methods=['POST'])
+@login_required
+def scan_reset():
+    """Reset current user's scan session."""
+    uid = session['user_id']
+    conn = get_db()
+    row = conn.execute(
+        "SELECT session_id FROM scan_sessions WHERE user_id=?", (uid,)
+    ).fetchone()
+    if row:
+        conn.execute("DELETE FROM scan_queue WHERE session_id=?", (row['session_id'],))
+        conn.execute("DELETE FROM scan_sessions WHERE user_id=?", (uid,))
+        conn.commit()
+    conn.close()
+    return jsonify({'success': True})

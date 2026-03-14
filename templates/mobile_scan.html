@@ -8,8 +8,7 @@
 .mobile-scan-wrap{max-width:480px;margin:0 auto}
 .qr-access-card{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border-radius:18px;padding:1.5rem;text-align:center;margin-bottom:1.2rem}
 .qr-access-card h4{font-weight:800;margin-bottom:.3rem}
-.qr-white-box{background:#fff;border-radius:12px;padding:1rem;display:inline-block;margin:1rem 0}
-#networkQR canvas,#networkQR img{border-radius:8px}
+.qr-white-box{background:#fff;border-radius:12px;padding:1rem;display:inline-block;margin:.8rem 0}
 .scan-result-card{border-radius:14px;border:1.5px solid #eff6ff;background:#fff;padding:1.1rem;margin-bottom:.8rem;display:none}
 .scan-result-card.show{display:block;animation:popIn .2s ease}
 @keyframes popIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
@@ -18,29 +17,34 @@
 .sh-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
 .sh-ico.ok{background:#eff6ff;color:#1e3a5f}
 .sh-ico.miss{background:#ffebee;color:#c62828}
+.session-badge{display:inline-flex;align-items:center;gap:.4rem;border-radius:20px;padding:.3rem .85rem;font-size:.78rem;font-weight:700;margin-top:.5rem}
+.session-badge.ok{background:rgba(16,185,129,.25);color:#6ee7b7}
+.session-badge.bad{background:rgba(239,68,68,.2);color:#fca5a5}
+.send-fb{display:none;position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);color:#fff;border-radius:20px;padding:.55rem 1.3rem;font-size:.84rem;font-weight:700;z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.3);white-space:nowrap}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="mobile-scan-wrap">
 
-  <!-- Step 1: Access from phone -->
+  <!-- Status card -->
   <div class="qr-access-card">
     <div style="font-size:2rem;margin-bottom:.4rem">📱</div>
-    <h4>Use Your Phone as a Scanner</h4>
-    <p style="opacity:.85;font-size:.88rem;margin-bottom:.8rem">
-      Open this QR code with your phone camera. Make sure your phone and this computer are on the <strong>same Wi-Fi network</strong>.
+    <h4>Mobile Barcode Scanner</h4>
+    <p style="opacity:.85;font-size:.88rem;margin-bottom:.4rem">
+      Scan barcodes here — products are sent <strong>directly to the POS cart</strong>, even across different devices.
     </p>
+    <div id="sessionBadge" class="session-badge bad">🔴 Checking…</div>
+
     <div class="qr-white-box">
       <div id="networkQR"></div>
     </div>
-    <p style="opacity:.7;font-size:.78rem;margin:0">Or type this address in your phone browser:</p>
-    <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:.4rem .9rem;margin-top:.3rem;font-family:monospace;font-size:.85rem;word-break:break-all" id="serverUrl">
-      Loading…
-    </div>
+    <p style="opacity:.7;font-size:.76rem;margin:0">Share this URL to open scanner on your phone:</p>
+    <div style="background:rgba(255,255,255,.13);border-radius:8px;padding:.4rem .9rem;margin-top:.3rem;font-family:monospace;font-size:.82rem;word-break:break-all" id="serverUrl">Loading…</div>
+    <p style="opacity:.6;font-size:.72rem;margin:.55rem 0 0">Log in with the <strong>same account</strong> on both devices.</p>
   </div>
 
-  <!-- Step 2: Camera scanner (works on phone) -->
+  <!-- Camera scanner -->
   <div class="table-card p-0 mb-3">
     <div class="card-header-vsms">
       <h3><i class="bi bi-camera-video me-2 text-success"></i>Camera Barcode Scanner</h3>
@@ -57,9 +61,7 @@
   <!-- Last scanned result -->
   <div class="scan-result-card" id="scanResult">
     <div class="d-flex align-items-center gap-3">
-      <div style="width:44px;height:44px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">
-        📦
-      </div>
+      <div style="width:44px;height:44px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📦</div>
       <div style="flex:1">
         <div class="fw-700" id="res-name">—</div>
         <div class="text-muted small" id="res-cat">—</div>
@@ -70,12 +72,10 @@
       </div>
     </div>
     <div class="mt-2 d-flex gap-2">
-      <button class="btn-vsms flex-1" onclick="addToPOSCart()" id="addCartBtn">
-        <i class="bi bi-cart-plus me-1"></i>Add to POS Cart
+      <button class="btn-vsms flex-1" onclick="manualPush()" id="addCartBtn">
+        <i class="bi bi-cart-plus me-1"></i>Send to POS Cart
       </button>
-      <button class="btn-vsms-outline" onclick="clearResult()">
-        <i class="bi bi-x-lg"></i>
-      </button>
+      <button class="btn-vsms-outline" onclick="clearResult()"><i class="bi bi-x-lg"></i></button>
     </div>
   </div>
 
@@ -91,43 +91,53 @@
   </div>
 
 </div>
+<div class="send-fb" id="sendFb"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let scannerInst = null;
-let scanOn = false;
-let scanHistory = [];
-let lastProduct = null;
+let scannerInst = null, scanOn = false;
+let scanHistory = [], lastProduct = null;
 
-// ── Build QR code for network URL ─────────────────────────────────────
-function buildNetworkQR() {
-  const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-  const ip   = window.location.hostname;
-  const url  = `${window.location.protocol}//${ip}${port && port !== '80' && port !== '443' ? ':'+port : ''}/pos`;
+// ── Session check ─────────────────────────────────────────────────────
+async function checkSession() {
+  try {
+    const r = await fetch('/api/scan-session/info');
+    const d = await r.json();
+    setBadge(!!d.session_id, d.session_id
+      ? '🟢 POS session ready — items sync to cart'
+      : '🔴 No POS session — open the POS page first');
+  } catch { setBadge(false, '🔴 Cannot reach server'); }
+}
+
+function setBadge(ok, msg) {
+  const b = document.getElementById('sessionBadge');
+  b.className = 'session-badge ' + (ok ? 'ok' : 'bad');
+  b.textContent = msg;
+}
+
+// ── QR code for this scanner page ────────────────────────────────────
+function buildQR() {
+  const port = window.location.port;
+  const base = `${window.location.protocol}//${window.location.hostname}${port && port!=='80' && port!=='443' ? ':'+port : ''}`;
+  const url  = base + '/mobile-scan';
   document.getElementById('serverUrl').textContent = url;
-
-  // Build QR canvas (same Code128 approach as POS)
   const el = document.getElementById('networkQR');
   el.innerHTML = '';
-  const size = 160;
-  const canvas = document.createElement('canvas');
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,size,size);
-  // Draw deterministic QR-like pattern for the URL
-  const cells = 21;
-  const cs = size/cells;
-  ctx.fillStyle = '#000';
-  [[0,0],[cells-7,0],[0,cells-7]].forEach(([cx,cy]) => {
+  const size=160, cells=21, cs=size/cells;
+  const canvas=document.createElement('canvas');
+  canvas.width=size; canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#000';
+  [[0,0],[cells-7,0],[0,cells-7]].forEach(([cx,cy])=>{
     ctx.fillRect(cx*cs,cy*cs,7*cs,7*cs);
     ctx.fillStyle='#fff'; ctx.fillRect((cx+1)*cs,(cy+1)*cs,5*cs,5*cs);
     ctx.fillStyle='#000'; ctx.fillRect((cx+2)*cs,(cy+2)*cs,3*cs,3*cs);
   });
-  let h = 0;
-  for(let i=0;i<url.length;i++) h=(Math.imul(31,h)+url.charCodeAt(i))|0;
+  let h=0; for(let i=0;i<url.length;i++) h=(Math.imul(31,h)+url.charCodeAt(i))|0;
   const rng=()=>{h=(Math.imul(1664525,h)+1013904223)|0;return(h>>>0)/4294967296;};
-  for(let r=0;r<cells;r++) for(let c=0;c<cells;c++) {
+  for(let r=0;r<cells;r++) for(let c=0;c<cells;c++){
     if((r<8&&c<8)||(r<8&&c>cells-9)||(r>cells-9&&c<8)) continue;
     if(rng()>.48){ctx.fillStyle='#000';ctx.fillRect(c*cs,r*cs,cs,cs);}
   }
@@ -136,37 +146,33 @@ function buildNetworkQR() {
 
 // ── Camera scanner ────────────────────────────────────────────────────
 async function toggleScan() {
-  const btn  = document.getElementById('startScanBtn');
-  const hint = document.getElementById('scanHint');
+  const btn=document.getElementById('startScanBtn');
+  const hint=document.getElementById('scanHint');
   if (!scanOn) {
-    btn.textContent = 'Stop Camera';
-    hint.style.display = '';
-    scanOn = true;
+    btn.textContent='Stop Camera'; hint.style.display=''; scanOn=true;
     scannerInst = new Html5QrcodeScanner('scanReader',
-      { fps: 10, qrbox: { width: 280, height: 140 },
-        aspectRatio: 1.5, showTorchButtonIfSupported: true });
-    scannerInst.render(async decodedText => {
+      {fps:10, qrbox:{width:280,height:140}, aspectRatio:1.5, showTorchButtonIfSupported:true});
+    scannerInst.render(async code => {
       scannerInst.pause();
-      await handleScan(decodedText);
-      setTimeout(() => scannerInst.resume && scannerInst.resume(), 2000);
+      await handleScan(code);
+      setTimeout(()=> scannerInst.resume && scannerInst.resume(), 2000);
     });
   } else {
-    if (scannerInst) { await scannerInst.clear().catch(()=>{}); scannerInst = null; }
-    btn.textContent = 'Start Camera';
-    hint.style.display = 'none';
-    document.getElementById('scanReader').innerHTML = '';
-    scanOn = false;
+    if (scannerInst) { await scannerInst.clear().catch(()=>{}); scannerInst=null; }
+    btn.textContent='Start Camera'; hint.style.display='none';
+    document.getElementById('scanReader').innerHTML=''; scanOn=false;
   }
 }
 
 async function handleScan(code) {
   try {
-    const res  = await fetch(`/api/products/barcode/${encodeURIComponent(code.trim())}`);
+    const res = await fetch(`/api/products/barcode/${encodeURIComponent(code.trim())}`);
     const data = await res.json();
     if (data.product) {
       lastProduct = data.product;
       showResult(data.product);
       addToHistory(code, data.product, true);
+      await pushProduct(data.product);   // auto-push on scan
     } else {
       addToHistory(code, null, false);
       showNotFound(code);
@@ -175,42 +181,63 @@ async function handleScan(code) {
 }
 
 function showResult(p) {
-  document.getElementById('res-name').textContent  = p.product_name;
-  document.getElementById('res-cat').textContent   = p.category + (p.brand ? ' · ' + p.brand : '');
-  document.getElementById('res-price').textContent = '₱' + parseFloat(p.price).toFixed(2);
-  document.getElementById('res-stock').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
-  document.getElementById('addCartBtn').disabled   = p.stock <= 0;
-  const card = document.getElementById('scanResult');
-  card.className = 'scan-result-card show';
-  card.style.borderColor = p.stock > 0 ? '#bfdbfe' : '#ffcdd2';
+  document.getElementById('res-name').textContent = p.product_name;
+  document.getElementById('res-cat').textContent  = p.category + (p.brand ? ' · '+p.brand : '');
+  document.getElementById('res-price').textContent= '₱'+parseFloat(p.price).toFixed(2);
+  document.getElementById('res-stock').textContent= 'Stock: '+p.stock+' '+p.unit;
+  document.getElementById('addCartBtn').disabled  = p.stock<=0;
+  const card=document.getElementById('scanResult');
+  card.className='scan-result-card show';
+  card.style.borderColor=p.stock>0?'#bfdbfe':'#ffcdd2';
 }
 
 function showNotFound(code) {
-  document.getElementById('res-name').textContent  = 'Product not found';
-  document.getElementById('res-cat').textContent   = 'Barcode: ' + code;
-  document.getElementById('res-price').textContent = '—';
-  document.getElementById('res-stock').textContent = '';
-  document.getElementById('addCartBtn').disabled   = true;
-  document.getElementById('scanResult').className  = 'scan-result-card show';
+  document.getElementById('res-name').textContent ='Product not found';
+  document.getElementById('res-cat').textContent  ='Barcode: '+code;
+  document.getElementById('res-price').textContent='—';
+  document.getElementById('res-stock').textContent='';
+  document.getElementById('addCartBtn').disabled  =true;
+  document.getElementById('scanResult').className ='scan-result-card show';
 }
 
 function clearResult() {
-  document.getElementById('scanResult').className = 'scan-result-card';
-  lastProduct = null;
+  document.getElementById('scanResult').className='scan-result-card';
+  lastProduct=null;
 }
 
+function manualPush() { if (lastProduct) pushProduct(lastProduct); }
+
+// ── Push to server session ────────────────────────────────────────────
+async function pushProduct(prod) {
+  try {
+    const res = await fetch('/api/scan-session/push', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({product: prod})
+    });
+    const d = await res.json();
+    if (d.success) {
+      flash('✅ '+prod.product_name+' → POS cart', '#059669');
+      setBadge(true, '🟢 POS session ready — items sync to cart');
+    } else {
+      flash('⚠️ '+(d.message||'Could not send'), '#d97706');
+      if (d.message && d.message.toLowerCase().includes('session'))
+        setBadge(false, '🔴 No POS session — open the POS page first');
+    }
+  } catch { flash('❌ Network error — not sent', '#dc2626'); }
+}
+
+// ── History ───────────────────────────────────────────────────────────
 function addToHistory(code, product, found) {
-  scanHistory.unshift({ code, product, found, time: new Date().toLocaleTimeString('en-PH') });
+  scanHistory.unshift({code, product, found, time: new Date().toLocaleTimeString('en-PH')});
   renderHistory();
 }
 
 function renderHistory() {
   document.getElementById('histCount').textContent = scanHistory.length;
   const c = document.getElementById('scanHistory');
-  if (!scanHistory.length) {
-    c.innerHTML = '<div class="text-muted text-center small py-3">No scans yet</div>'; return;
-  }
-  c.innerHTML = scanHistory.map(s => `
+  if (!scanHistory.length) { c.innerHTML='<div class="text-muted text-center small py-3">No scans yet</div>'; return; }
+  c.innerHTML = scanHistory.map(s=>`
     <div class="sh-row">
       <div class="sh-ico ${s.found?'ok':'miss'}">${s.found?'✅':'❌'}</div>
       <div style="flex:1;min-width:0">
@@ -219,49 +246,24 @@ function renderHistory() {
         </div>
         <div class="text-muted" style="font-size:.7rem">${s.time}${s.product?' · ₱'+parseFloat(s.product.price).toFixed(2):''}</div>
       </div>
-      ${s.product && s.product.stock > 0 ?
-        `<button class="btn-vsms btn-vsms-sm" onclick='quickAdd(${JSON.stringify(s.product)})'>
-          <i class="bi bi-cart-plus"></i>
-        </button>` : ''}
+      ${s.product && s.product.stock>0
+        ? `<button class="btn-vsms btn-vsms-sm" onclick='pushProduct(${JSON.stringify(s.product)})'><i class="bi bi-cart-plus"></i></button>`
+        : ''}
     </div>`).join('');
 }
 
-function clearHistory() {
-  scanHistory = [];
-  renderHistory();
+function clearHistory() { scanHistory=[]; renderHistory(); }
+
+// ── Flash toast ───────────────────────────────────────────────────────
+function flash(msg, bg) {
+  const el=document.getElementById('sendFb');
+  el.textContent=msg; el.style.background=bg||'#0f172a'; el.style.display='block';
+  clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none', 2500);
 }
 
-// ── Add to POS session via shared localStorage key ────────────────────
-// The POS page and mobile scanner communicate through BroadcastChannel API
-const scanChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('vsms_scan') : null;
-
-function addToPOSCart() {
-  if (!lastProduct) return;
-  sendToCart(lastProduct);
-}
-
-function quickAdd(prod) {
-  sendToCart(prod);
-}
-
-function sendToCart(prod) {
-  if (scanChannel) {
-    scanChannel.postMessage({ type: 'ADD_TO_CART', product: prod });
-    showFlash(`${prod.product_name} sent to POS cart!`, 'success');
-  } else {
-    showFlash('BroadcastChannel not supported. Use the direct POS page on this device.', 'warning');
-  }
-}
-
-function showFlash(msg, type) {
-  const el = document.createElement('div');
-  el.className = `alert alert-${type} alert-dismissible fade show vsms-alert`;
-  el.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;max-width:280px;font-size:.85rem';
-  el.innerHTML = `${msg}<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>`;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
-buildNetworkQR();
+// Init
+buildQR();
+checkSession();
+setInterval(checkSession, 20000);
 </script>
 {% endblock %}

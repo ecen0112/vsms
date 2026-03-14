@@ -149,11 +149,31 @@
 
 /* Hold card */
 .hold-card{display:flex;align-items:center;gap:.6rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.65rem .85rem;margin-bottom:.5rem}
+
+/* ── Mobile: scan-only mode (hide product grid, stack layout) ─── */
+#mobileScanNotice{display:none;align-items:center;gap:.5rem;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:.55rem .85rem;font-size:.8rem;font-weight:700;color:var(--primary);margin-bottom:.6rem}
+@media(max-width:768px){
+  .pos-root{display:flex!important;flex-direction:column;height:auto!important;min-height:unset!important}
+  .pos-left{overflow:visible!important}
+  .pos-right{height:auto!important}
+  .prod-browser{display:none!important}
+  .hot-bar{display:none!important}
+  .cart-panel{height:auto!important}
+  .cart-body{height:auto!important;min-height:80px;max-height:40vh;overflow-y:auto}
+  #camBtn{width:100%!important;margin-top:.3rem}
+  .scan-bar .row>div{flex:0 0 100%!important;max-width:100%!important}
+  #mobileScanNotice{display:flex!important}
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="pos-root">
+  <!-- Mobile scan-only notice -->
+  <div id="mobileScanNotice" style="grid-column:1/-1">
+    <i class="bi bi-phone-fill text-primary" style="font-size:1.1rem"></i>
+    <span>📷 Mobile mode — Use camera or barcode input to scan products directly into cart.</span>
+  </div>
   <!-- ══ LEFT: Scanner + Products ══════════════════════════════════ -->
   <div class="pos-left">
     <!-- Scanner bar -->
@@ -1347,16 +1367,33 @@ function _nextToast(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BroadcastChannel (mobile scanner → POS)
+   SERVER-SIDE MOBILE SCAN POLLING
+   Replaces BroadcastChannel (which only works same device/browser)
 ═══════════════════════════════════════════════════════════ */
-if (typeof BroadcastChannel !== 'undefined') {
-  const scanCh = new BroadcastChannel('vsms_scan');
-  scanCh.onmessage = e => {
-    if (e.data?.type === 'ADD_TO_CART' && e.data.product) {
-      addToCart(e.data.product);
-      toast('📱 '+e.data.product.product_name+' added from mobile', 'i');
+let _pollInterval = null;
+
+async function initScanSession() {
+  try {
+    await fetch('/api/scan-session/info');  // creates session for this user if not exists
+  } catch(e) { /* non-fatal */ }
+}
+
+async function pollMobileScan() {
+  try {
+    const res = await fetch('/api/scan-session/poll');
+    const data = await res.json();
+    if (data.items && data.items.length) {
+      data.items.forEach(prod => {
+        addToCart(prod);
+        toast('📱 ' + prod.product_name + ' added from mobile', 'i');
+      });
     }
-  };
+  } catch(e) { /* non-fatal */ }
+}
+
+function startScanPolling() {
+  if (_pollInterval) return;
+  _pollInterval = setInterval(pollMobileScan, 2000);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1365,5 +1402,7 @@ if (typeof BroadcastChannel !== 'undefined') {
 showCartEmpty();
 loadProds();
 document.getElementById('barcodeIn').focus();
+initScanSession();
+startScanPolling();
 </script>
 {% endblock %}

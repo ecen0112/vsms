@@ -193,6 +193,24 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         );
 
+        CREATE TABLE IF NOT EXISTS scan_sessions (
+            session_id   TEXT PRIMARY KEY,
+            user_id      INTEGER NOT NULL,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS scan_queue (
+            queue_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id  TEXT NOT NULL,
+            product_id  INTEGER NOT NULL,
+            product_json TEXT NOT NULL,
+            consumed    INTEGER DEFAULT 0,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES scan_sessions(session_id),
+            FOREIGN KEY (product_id) REFERENCES products(product_id)
+        );
+
         CREATE TABLE IF NOT EXISTS alerts (
             alert_id INTEGER PRIMARY KEY AUTOINCREMENT,
             alert_type TEXT NOT NULL CHECK(alert_type IN ('low_stock','expiring','expired','reorder')),
