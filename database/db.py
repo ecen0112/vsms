@@ -294,5 +294,25 @@ def init_db():
                 VALUES (?,?,?,?,?,?)""", b)
 
     conn.commit()
+
+    # ── Migration: ensure scan tables exist (safe for existing live DBs) ──────
+    # This runs every startup via CREATE TABLE IF NOT EXISTS, so it's safe
+    # to run against a database that was created before these tables existed.
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS scan_sessions (
+            session_id   TEXT PRIMARY KEY,
+            user_id      INTEGER NOT NULL,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS scan_queue (
+            queue_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id   TEXT NOT NULL,
+            product_id   INTEGER NOT NULL,
+            product_json TEXT NOT NULL,
+            consumed     INTEGER DEFAULT 0,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+    conn.commit()
     conn.close()
     print("✅ Database initialized successfully!")

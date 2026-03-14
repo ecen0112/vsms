@@ -61,8 +61,10 @@ def index():
         return redirect(url_for('dashboard.index'))
     return redirect(url_for('auth.login'))
 
+# ── DB init — runs on every startup (safe: CREATE TABLE IF NOT EXISTS) ─────────
+from database.db import init_db
+init_db()
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    from database.db import init_db
-    init_db()
     app.run(debug=True)
