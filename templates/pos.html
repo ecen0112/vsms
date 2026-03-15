@@ -3,6 +3,7 @@
 {% block page_title %}Point of Sale{% endblock %}
 
 {% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
 /* ── Layout ─────────────────────────────────────────────────── */
 .pos-root{display:grid;grid-template-columns:1fr 390px;gap:1rem;height:calc(100vh - 128px);min-height:520px}
@@ -208,7 +209,7 @@
         </div>
       </div>
       <div id="camArea" style="display:none;margin-top:.65rem">
-        <video id="camVideo" style="width:100%;border-radius:11px;background:#000" autoplay playsinline muted></video>
+        <div id="camReader" style="border-radius:11px;overflow:hidden"></div>
         <p class="text-muted text-center small mt-1">Point camera at barcode — hold steady</p>
       </div>
       <div class="hot-bar">
@@ -1127,61 +1128,79 @@ async function lookupBarcode(code) {
   } catch { toast('Barcode lookup failed','d'); }
 }
 
-/* ── Camera scanner (ZXing lazy-loaded on first use) ──────── */
-let _zxingReady = false;
-let _posCamScanning = false;
-
-function _loadZXing() {
-  return new Promise((resolve, reject) => {
-    if (typeof ZXing !== 'undefined') { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load ZXing'));
-    document.head.appendChild(s);
-  });
-}
+/* ── Camera scanner (html5-qrcode — same as mobile scanner) ── */
+let _posCamCooldown = false;
 
 async function toggleCam() {
   const area = document.getElementById('camArea');
   const txt  = document.getElementById('camTxt');
+  const btn  = document.getElementById('camBtn');
+
   if (!camOpen) {
+    // Start camera
     txt.textContent = '…';
-    try {
-      await _loadZXing();
-    } catch(e) { toast('Could not load camera library', 'd'); txt.textContent = 'Camera'; return; }
-    area.style.display = 'block';
-    txt.textContent = 'Stop';
-    camOpen = true;
-    _posCamScanning = false;
-    try {
-      camScanner = new ZXing.BrowserMultiFormatReader();
-      const devices = await camScanner.listVideoInputDevices();
-      let deviceId = devices[0]?.deviceId;
-      const rear = devices.find(d => /back|rear|environment/i.test(d.label));
-      if (rear) deviceId = rear.deviceId;
-      await camScanner.decodeFromVideoDevice(deviceId, 'camVideo', async (result, err) => {
-        if (result && !_posCamScanning) {
-          _posCamScanning = true;
-          await lookupBarcode(result.getText());
-          setTimeout(() => { _posCamScanning = false; }, 1800);
-        }
-      });
-    } catch(e) {
-      camOpen = false;
-      area.style.display = 'none';
+    btn.disabled = true;
+
+    const formats = [
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF,
+      Html5QrcodeSupportedFormats.QR_CODE,
+    ];
+
+    camScanner = new Html5Qrcode('camReader', { formatsToSupport: formats, verbose: false });
+
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras || !cameras.length) throw new Error('No camera found');
+      let camId = cameras[cameras.length - 1].id;
+      const back = cameras.find(c => /back|rear|environment/i.test(c.label));
+      if (back) camId = back.id;
+
+      return camScanner.start(
+        camId,
+        { fps: 15, qrbox: { width: 280, height: 100 }, aspectRatio: 2.0,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+        async (code) => {
+          if (_posCamCooldown) return;
+          _posCamCooldown = true;
+          await lookupBarcode(code);
+          setTimeout(() => { _posCamCooldown = false; }, 1800);
+        },
+        () => {} // ignore per-frame no-result errors
+      );
+    }).then(() => {
+      area.style.display = 'block';
+      camOpen = true;
+      txt.textContent = 'Stop';
+      btn.disabled = false;
+    }).catch(err => {
+      camScanner = null;
       txt.textContent = 'Camera';
-      toast('Camera error: ' + (e.message || e), 'd');
-    }
+      btn.disabled = false;
+      const msg = String(err.message || err);
+      toast(msg.includes('Permission') ? 'Allow camera access first' : 'Camera: ' + msg, 'd');
+    });
+
   } else {
-    if (camScanner) { camScanner.reset(); camScanner = null; }
+    // Stop camera
+    if (camScanner) {
+      camScanner.stop().catch(() => {}).finally(() => {
+        camScanner.clear().catch(() => {});
+        camScanner = null;
+      });
+    }
     area.style.display = 'none';
     txt.textContent = 'Camera';
+    btn.disabled = false;
     camOpen = false;
-    _posCamScanning = false;
+    _posCamCooldown = false;
   }
-  }
-
+}
 
 /* ── Search dropdown ─────────────────────────────────────── */
 let srchTimer;
