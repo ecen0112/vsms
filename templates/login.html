@@ -4,113 +4,444 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — VetSupply MS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Plus Jakarta Sans',sans-serif;min-height:100vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Left panel — brand / illustration ── */
-    .left-panel{background:linear-gradient(160deg,#0f1c2e 0%,#1e3a5f 55%,#1d4ed8 100%);position:relative;display:flex;flex-direction:column;justify-content:center;padding:3.5rem 3rem;overflow:hidden}
-    .left-panel::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
-    .left-panel::after{content:'';position:absolute;bottom:-80px;right:-80px;width:350px;height:350px;background:radial-gradient(circle,rgba(59,130,246,.25),transparent 70%);border-radius:50%}
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
 
-    .brand-mark{display:flex;align-items:center;gap:.9rem;margin-bottom:3.5rem;position:relative;z-index:1}
-    .brand-mark-icon{width:48px;height:48px;background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;border:1px solid rgba(255,255,255,.18)}
-    .brand-mark-text{font-size:1.1rem;font-weight:800;color:#fff;letter-spacing:-.02em}
-    .brand-mark-sub{font-size:.7rem;color:rgba(255,255,255,.45);letter-spacing:.04em;margin-top:1px}
+    /* ── Animated background ───────────────────────────────── */
+    body {
+      background: #060d1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
 
-    .hero-headline{font-size:2.4rem;font-weight:800;color:#fff;line-height:1.18;letter-spacing:-.03em;margin-bottom:1rem;position:relative;z-index:1}
-    .hero-headline span{color:#93c5fd}
-    .hero-sub{font-size:.9rem;color:rgba(255,255,255,.55);line-height:1.65;max-width:340px;position:relative;z-index:1}
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
 
-    .feature-pills{display:flex;flex-direction:column;gap:.6rem;margin-top:2.5rem;position:relative;z-index:1}
-    .fp{display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:rgba(255,255,255,.7)}
-    .fp-dot{width:26px;height:26px;background:rgba(255,255,255,.1);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: .55;
+      animation: drift linear infinite;
+    }
 
-    .left-footer{position:absolute;bottom:1.5rem;left:3rem;font-size:.68rem;color:rgba(255,255,255,.25);z-index:1}
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, #1e40af, transparent 70%);
+      top: -150px; left: -100px;
+      animation-duration: 18s;
+    }
+    .orb-2 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #0f766e, transparent 70%);
+      bottom: -120px; right: -80px;
+      animation-duration: 22s;
+      animation-direction: reverse;
+    }
+    .orb-3 {
+      width: 350px; height: 350px;
+      background: radial-gradient(circle, #4f46e5, transparent 70%);
+      top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-duration: 14s;
+      opacity: .3;
+    }
 
-    /* ── Right panel — form ── */
-    .right-panel{background:#f8fafc;display:flex;align-items:center;justify-content:center;padding:2rem}
-    .login-card{width:100%;max-width:400px}
+    @keyframes drift {
+      0%   { transform: translate(0, 0) scale(1); }
+      33%  { transform: translate(30px, -40px) scale(1.05); }
+      66%  { transform: translate(-20px, 20px) scale(.97); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
 
-    .login-header{margin-bottom:2rem}
-    .login-header h2{font-size:1.65rem;font-weight:800;color:#0f172a;letter-spacing:-.03em;margin-bottom:.3rem}
-    .login-header p{font-size:.875rem;color:#64748b}
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+      background-size: 200px;
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    .form-label{font-size:.8rem;font-weight:700;color:#374151;margin-bottom:.4rem}
-    .login-input{border:1.5px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;font-size:.9rem;font-family:'Plus Jakarta Sans',sans-serif;transition:all .18s;background:#fff;width:100%}
-    .login-input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12);outline:none}
-    .input-icon-wrap{position:relative}
-    .input-icon{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.95rem}
-    .login-input.has-icon{padding-left:2.5rem}
-    .pw-toggle{position:absolute;right:.85rem;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:.95rem;padding:2px;transition:color .14s}
-    .pw-toggle:hover{color:#3b82f6}
+    /* ── Main layout ───────────────────────────────────────── */
+    .container {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: min(960px, 96vw);
+      height: min(620px, 95vh);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.07),
+        0 40px 80px rgba(0,0,0,.6),
+        0 0 120px rgba(30,64,175,.15);
+    }
 
-    .btn-signin{width:100%;padding:.82rem;font-size:.95rem;font-weight:800;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border:none;border-radius:11px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.5rem;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-.01em}
-    .btn-signin:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(30,58,95,.38)}
-    .btn-signin:active{transform:translateY(0)}
-    .btn-signin .spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    /* ── Left panel ─────────────────────────────────────────── */
+    .left {
+      background: linear-gradient(145deg,
+        rgba(255,255,255,.04) 0%,
+        rgba(255,255,255,.02) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid rgba(255,255,255,.07);
+      padding: 3rem 3rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
 
-    .divider{display:flex;align-items:center;gap:.8rem;margin:1.4rem 0}
-    .divider::before,.divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
-    .divider span{font-size:.72rem;font-weight:600;color:#94a3b8;white-space:nowrap}
+    /* Subtle inner glow */
+    .left::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+    }
 
-    .demo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem}
-    .demo-btn{border:1.5px solid #e2e8f0;border-radius:9px;padding:.5rem .4rem;text-align:center;cursor:pointer;transition:all .15s;background:#fff}
-    .demo-btn:hover{border-color:#3b82f6;background:#eff6ff}
-    .demo-role{display:block;font-size:.65rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:2px}
-    .demo-role.admin{color:#9d174d}
-    .demo-role.manager{color:#1e40af}
-    .demo-role.cashier{color:#065f46}
-    .demo-creds{display:block;font-size:.7rem;color:#94a3b8;font-family:'IBM Plex Mono','Courier New',monospace}
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+    }
+    .logo-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, #1d4ed8, #0f766e);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      box-shadow: 0 4px 14px rgba(29,78,216,.45);
+    }
+    .logo-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -.02em;
+    }
+    .logo-tag {
+      font-size: .6rem;
+      color: rgba(255,255,255,.35);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
 
-    .login-footer{margin-top:1.8rem;font-size:.72rem;color:#94a3b8;text-align:center}
+    .left-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 1.5rem 0; }
 
-    @media(max-width:768px){
-      body{grid-template-columns:1fr}
-      .left-panel{display:none}
-      .right-panel{background:linear-gradient(160deg,#0f1c2e,#1e3a5f);align-items:flex-start;padding:1.5rem}
-      .login-card{max-width:100%}
-      .login-header h2,.login-header p{color:#f8fafc}
-      .login-header p{color:rgba(255,255,255,.6)}
-      .form-label{color:#e2e8f0}
+    .headline {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.18;
+      letter-spacing: -.05em;
+      margin-bottom: 1rem;
+    }
+    .headline span { 
+      background: linear-gradient(90deg, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      font-size: .85rem;
+      color: rgba(255,255,255,.45);
+      line-height: 1.7;
+      margin-bottom: 2rem;
+    }
+
+    .pills {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      font-size: .78rem;
+      color: rgba(255,255,255,.6);
+      padding: .45rem .75rem;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 40px;
+      width: fit-content;
+      backdrop-filter: blur(4px);
+    }
+    .pill-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d399;
+      flex-shrink: 0;
+    }
+
+    .left-foot {
+      font-size: .65rem;
+      color: rgba(255,255,255,.2);
+    }
+
+    /* ── Right panel ─────────────────────────────────────────── */
+    .right {
+      background: rgba(8, 15, 28, .75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      padding: 3rem 2.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+    }
+
+    .right::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.1), transparent);
+    }
+
+    .form-head { margin-bottom: 2rem; }
+    .form-head h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -.04em;
+      margin-bottom: .3rem;
+    }
+    .form-head p {
+      font-size: .83rem;
+      color: rgba(255,255,255,.4);
+    }
+
+    /* Flash alert */
+    .flash {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .65rem .85rem;
+      border-radius: 10px;
+      font-size: .8rem;
+      margin-bottom: 1.2rem;
+      border: 1px solid;
+    }
+    .flash.danger  { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.3); color: #fca5a5; }
+    .flash.success { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); color: #6ee7b7; }
+
+    /* Field */
+    .field { margin-bottom: 1rem; }
+    .field-label {
+      font-size: .73rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.5);
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      margin-bottom: .4rem;
+      display: block;
+    }
+    .inp-wrap { position: relative; }
+    .inp-ico {
+      position: absolute;
+      left: .9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255,255,255,.25);
+      font-size: .95rem;
+      pointer-events: none;
+      transition: color .15s;
+    }
+    .inp {
+      width: 100%;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 11px;
+      padding: .75rem .9rem .75rem 2.6rem;
+      font-size: .9rem;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
+      outline: none;
+      transition: border-color .18s, background .18s, box-shadow .18s;
+    }
+    .inp::placeholder { color: rgba(255,255,255,.2); }
+    .inp:focus {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(99,102,241,.7);
+      box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+    }
+    .inp:focus + .inp-ico,
+    .inp-wrap:focus-within .inp-ico { color: rgba(99,102,241,.8); }
+    .inp.pw-inp { padding-right: 2.8rem; }
+
+    .pw-btn {
+      position: absolute;
+      right: .75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,.25);
+      cursor: pointer;
+      font-size: .9rem;
+      padding: 3px;
+      transition: color .14s;
+    }
+    .pw-btn:hover { color: rgba(255,255,255,.6); }
+
+    /* Bottom row */
+    .form-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .remember input {
+      width: 15px; height: 15px;
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
+    .remember span {
+      font-size: .78rem;
+      color: rgba(255,255,255,.4);
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      padding: .82rem;
+      font-size: .93rem;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: -.01em;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .18s, box-shadow .18s;
+      background: linear-gradient(135deg, #4f46e5 0%, #1d4ed8 50%, #0f766e 100%);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(79,70,229,.4);
+    }
+    .btn-submit::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.12), transparent);
+      opacity: 0;
+      transition: opacity .18s;
+    }
+    .btn-submit:hover:not(:disabled)::before { opacity: 1; }
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(79,70,229,.5);
+    }
+    .btn-submit:active:not(:disabled) { transform: translateY(0); }
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    .spinner {
+      width: 17px; height: 17px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .form-foot {
+      margin-top: 1.75rem;
+      text-align: center;
+      font-size: .68rem;
+      color: rgba(255,255,255,.18);
+    }
+
+    /* ── Mobile ─────────────────────────────────────────────── */
+    @media (max-width: 680px) {
+      .container { grid-template-columns: 1fr; width: 100%; height: 100%; border-radius: 0; }
+      .left { display: none; }
+      .right { padding: 2.5rem 1.75rem; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Left brand panel -->
-  <div class="left-panel">
-    <div class="brand-mark">
-      <div class="brand-mark-icon"><i class="bi bi-heart-pulse-fill"></i></div>
-      <div>
-        <div class="brand-mark-text">VetSupply MS</div>
-        <div class="brand-mark-sub">MANAGEMENT SYSTEM</div>
-      </div>
-    </div>
-
-    <h1 class="hero-headline">Smart inventory<br>for <span>veterinary</span><br>professionals.</h1>
-    <p class="hero-sub">Manage medicines, vaccines, pet food, and equipment with real-time stock tracking, purchase orders, and integrated POS.</p>
-
-    <div class="feature-pills">
-      <div class="fp"><div class="fp-dot">📦</div>Real-time inventory & batch tracking</div>
-      <div class="fp"><div class="fp-dot">🛒</div>Integrated point of sale with receipts</div>
-      <div class="fp"><div class="fp-dot">📋</div>Purchase orders with supplier workflow</div>
-      <div class="fp"><div class="fp-dot">📱</div>Mobile barcode scanning support</div>
-      <div class="fp"><div class="fp-dot">📊</div>Sales analytics & audit trail</div>
-    </div>
-
-    <div class="left-footer">© 2024 VetSupply Management System · v2.0</div>
+  <!-- Animated orbs -->
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
   </div>
 
-  <!-- Right form panel -->
-  <div class="right-panel">
-    <div class="login-card">
-      <div class="login-header">
+  <div class="container">
+
+    <!-- Left brand panel -->
+    <div class="left">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="bi bi-heart-pulse-fill" style="color:#fff;font-size:1.1rem"></i>
+        </div>
+        <div>
+          <div class="logo-name">VetSupply MS</div>
+          <div class="logo-tag">Management System</div>
+        </div>
+      </div>
+
+      <div class="left-body">
+        <h1 class="headline">
+          Smart<br>inventory for<br><span>veterinary pros.</span>
+        </h1>
+        <p class="tagline">
+          Real-time stock tracking, purchase orders,<br>
+          integrated POS, and barcode scanning — all in one.
+        </p>
+        <div class="pills">
+          <div class="pill"><div class="pill-dot"></div>Real-time inventory &amp; batch tracking</div>
+          <div class="pill"><div class="pill-dot"></div>Integrated POS with VAT &amp; receipts</div>
+          <div class="pill"><div class="pill-dot"></div>Purchase orders &amp; supplier workflow</div>
+          <div class="pill"><div class="pill-dot"></div>Sales analytics &amp; full audit trail</div>
+        </div>
+      </div>
+
+      <div class="left-foot">© 2025 VetSupply Management System &nbsp;·&nbsp; v2.0</div>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="right">
+      <div class="form-head">
         <h2>Welcome back</h2>
         <p>Sign in to your account to continue</p>
       </div>
@@ -118,85 +449,81 @@
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for category, message in messages %}
-          <div class="alert alert-{{ category }} d-flex align-items-center gap-2 mb-3 rounded-3" style="font-size:.84rem" role="alert">
-            <i class="bi bi-{{ 'check-circle' if category=='success' else 'exclamation-circle' }}-fill"></i>
+          <div class="flash {{ category }}">
+            <i class="bi bi-{{ 'check-circle-fill' if category == 'success' else 'exclamation-circle-fill' }}"></i>
             {{ message }}
-            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
           </div>
           {% endfor %}
         {% endif %}
       {% endwith %}
 
-      <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
-        <div class="mb-3">
-          <label class="form-label">Username</label>
-          <div class="input-icon-wrap">
-            <i class="bi bi-person input-icon"></i>
-            <input type="text" name="username" class="login-input has-icon" placeholder="Enter your username" required autofocus id="usernameIn">
+      <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" autocomplete="on">
+
+        <div class="field">
+          <label class="field-label" for="userIn">Username</label>
+          <div class="inp-wrap">
+            <input type="text" id="userIn" name="username" class="inp"
+              placeholder="Enter your username"
+              autocomplete="username"
+              required autofocus>
+            <span class="inp-ico"><i class="bi bi-person"></i></span>
           </div>
         </div>
 
-        <div class="mb-4">
-          <label class="form-label">Password</label>
-          <div class="input-icon-wrap">
-            <i class="bi bi-lock input-icon"></i>
-            <input type="password" name="password" class="login-input has-icon" style="padding-right:2.8rem" placeholder="Enter your password" required id="passwordIn">
-            <button type="button" class="pw-toggle" onclick="togglePw()" tabindex="-1">
-              <i class="bi bi-eye" id="pwEye"></i>
+        <div class="field">
+          <label class="field-label" for="passIn">Password</label>
+          <div class="inp-wrap">
+            <input type="password" id="passIn" name="password" class="inp pw-inp"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required>
+            <span class="inp-ico"><i class="bi bi-lock"></i></span>
+            <button type="button" class="pw-btn" onclick="togglePw()" tabindex="-1">
+              <i class="bi bi-eye" id="eyeIco"></i>
             </button>
           </div>
         </div>
 
-        <button type="submit" class="btn-signin" id="signinBtn">
-          <div class="spin" id="signinSpinner"></div>
-          <i class="bi bi-box-arrow-in-right" id="signinIcon"></i>
-          <span id="signinTxt">Sign In</span>
+        <div class="form-row">
+          <label class="remember">
+            <input type="checkbox" name="remember" id="rememberChk">
+            <span>Keep me signed in</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <div class="spinner" id="spin"></div>
+          <i class="bi bi-box-arrow-in-right" id="submitIco"></i>
+          <span id="submitTxt">Sign In</span>
         </button>
+
       </form>
 
-      <div class="divider"><span>Quick access — demo accounts</span></div>
-
-      <div class="demo-grid">
-        <div class="demo-btn" onclick="fillLogin('admin','admin123')">
-          <span class="demo-role admin">Admin</span>
-          <span class="demo-creds">admin123</span>
-        </div>
-        <div class="demo-btn" onclick="fillLogin('manager','manager123')">
-          <span class="demo-role manager">Manager</span>
-          <span class="demo-creds">manager123</span>
-        </div>
-        <div class="demo-btn" onclick="fillLogin('cashier','cashier123')">
-          <span class="demo-role cashier">Cashier</span>
-          <span class="demo-creds">cashier123</span>
-        </div>
-      </div>
-
-      <div class="login-footer">
-        Veterinary Supply Management System &middot; All rights reserved
+      <div class="form-foot">
+        Veterinary Supply Management System &nbsp;·&nbsp; All rights reserved
       </div>
     </div>
+
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     function togglePw() {
-      const pw  = document.getElementById('passwordIn');
-      const eye = document.getElementById('pwEye');
-      if (pw.type === 'password') { pw.type = 'text'; eye.className = 'bi bi-eye-slash'; }
-      else { pw.type = 'password'; eye.className = 'bi bi-eye'; }
+      const inp = document.getElementById('passIn');
+      const ico = document.getElementById('eyeIco');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        ico.className = 'bi bi-eye-slash';
+      } else {
+        inp.type = 'password';
+        ico.className = 'bi bi-eye';
+      }
     }
 
-    function fillLogin(u, p) {
-      document.getElementById('usernameIn').value = u;
-      document.getElementById('passwordIn').value = p;
-      document.getElementById('usernameIn').focus();
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', function() {
-      document.getElementById('signinSpinner').style.display = 'block';
-      document.getElementById('signinIcon').style.display   = 'none';
-      document.getElementById('signinTxt').textContent      = 'Signing in…';
-      document.getElementById('signinBtn').disabled         = true;
+    document.getElementById('loginForm').addEventListener('submit', () => {
+      document.getElementById('spin').style.display = 'block';
+      document.getElementById('submitIco').style.display = 'none';
+      document.getElementById('submitTxt').textContent = 'Signing in…';
+      document.getElementById('submitBtn').disabled = true;
     });
   </script>
 </body>

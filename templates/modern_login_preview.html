@@ -1,0 +1,94 @@
+
+<style>
+@keyframes drift{0%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-40px) scale(1.05)}66%{transform:translate(-20px,20px) scale(.97)}100%{transform:translate(0,0) scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;animation:drift linear infinite}
+</style>
+<div style="background:#060d1a;border-radius:16px;overflow:hidden;position:relative;min-height:460px;display:grid;grid-template-columns:1fr 1fr">
+
+  <!-- Orbs -->
+  <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
+    <div class="orb" style="width:400px;height:400px;background:radial-gradient(circle,#1e40af,transparent 70%);top:-100px;left:-60px;animation-duration:18s"></div>
+    <div class="orb" style="width:350px;height:350px;background:radial-gradient(circle,#0f766e,transparent 70%);bottom:-80px;right:-60px;animation-duration:22s;animation-direction:reverse"></div>
+    <div class="orb" style="width:260px;height:260px;background:radial-gradient(circle,#4f46e5,transparent 70%);top:40%;left:42%;opacity:.25;animation-duration:14s"></div>
+  </div>
+
+  <!-- Left -->
+  <div style="background:rgba(255,255,255,.03);backdrop-filter:blur(20px);border-right:1px solid rgba(255,255,255,.07);padding:2.25rem 2.5rem;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1">
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <div style="width:38px;height:38px;background:linear-gradient(135deg,#1d4ed8,#0f766e);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 14px rgba(29,78,216,.45)">❤️</div>
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:#fff;letter-spacing:-.02em">VetSupply MS</div>
+        <div style="font-size:.58rem;color:rgba(255,255,255,.35);letter-spacing:.1em;text-transform:uppercase">Management System</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:1.75rem;font-weight:800;color:#fff;line-height:1.18;letter-spacing:-.05em;margin-bottom:.75rem">
+        Smart<br>inventory for<br>
+        <span style="background:linear-gradient(90deg,#60a5fa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent">veterinary pros.</span>
+      </div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.42);line-height:1.7;margin-bottom:1.5rem">Real-time stock tracking, POS,<br>and barcode scanning — all in one.</div>
+      <div style="display:flex;flex-direction:column;gap:.4rem">
+        <div style="display:inline-flex;align-items:center;gap:.55rem;font-size:.72rem;color:rgba(255,255,255,.58);padding:.38rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:40px;width:fit-content">
+          <div style="width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0"></div>Real-time inventory &amp; batch tracking
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:.55rem;font-size:.72rem;color:rgba(255,255,255,.58);padding:.38rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:40px;width:fit-content">
+          <div style="width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0"></div>Integrated POS with VAT &amp; receipts
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:.55rem;font-size:.72rem;color:rgba(255,255,255,.58);padding:.38rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:40px;width:fit-content">
+          <div style="width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0"></div>Purchase orders &amp; supplier workflow
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:.55rem;font-size:.72rem;color:rgba(255,255,255,.58);padding:.38rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:40px;width:fit-content">
+          <div style="width:6px;height:6px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0"></div>Sales analytics &amp; full audit trail
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:.62rem;color:rgba(255,255,255,.2)">© 2025 VetSupply Management System · v2.0</div>
+  </div>
+
+  <!-- Right -->
+  <div style="background:rgba(8,15,28,.8);backdrop-filter:blur(24px);padding:2.5rem 2.25rem;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1">
+    <div style="margin-bottom:1.75rem">
+      <div style="font-size:1.5rem;font-weight:800;color:#f8fafc;letter-spacing:-.04em;margin-bottom:.25rem">Welcome back</div>
+      <div style="font-size:.78rem;color:rgba(255,255,255,.38)">Sign in to your account to continue</div>
+    </div>
+
+    <!-- Username -->
+    <div style="margin-bottom:.85rem">
+      <div style="font-size:.67rem;font-weight:600;color:rgba(255,255,255,.45);letter-spacing:.04em;text-transform:uppercase;margin-bottom:.38rem">Username</div>
+      <div style="position:relative">
+        <div style="position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.22);font-size:14px">👤</div>
+        <div style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:.68rem .85rem .68rem 2.5rem;font-size:.85rem;color:rgba(255,255,255,.25)">Enter your username</div>
+      </div>
+    </div>
+
+    <!-- Password -->
+    <div style="margin-bottom:.85rem">
+      <div style="font-size:.67rem;font-weight:600;color:rgba(255,255,255,.45);letter-spacing:.04em;text-transform:uppercase;margin-bottom:.38rem">Password</div>
+      <div style="position:relative">
+        <div style="position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.22);font-size:14px">🔒</div>
+        <div style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(99,102,241,.6);border-radius:11px;padding:.68rem 2.5rem .68rem 2.5rem;font-size:.85rem;color:rgba(255,255,255,.25);box-shadow:0 0 0 3px rgba(99,102,241,.12)">••••••••••</div>
+        <div style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.25);font-size:13px">👁</div>
+      </div>
+    </div>
+
+    <!-- Remember -->
+    <div style="display:flex;align-items:center;gap:.45rem;margin-bottom:1.4rem">
+      <div style="width:14px;height:14px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05)"></div>
+      <span style="font-size:.75rem;color:rgba(255,255,255,.38)">Keep me signed in</span>
+    </div>
+
+    <!-- Button -->
+    <div style="width:100%;padding:.78rem;font-size:.88rem;font-weight:700;background:linear-gradient(135deg,#4f46e5,#1d4ed8 50%,#0f766e);color:#fff;border-radius:12px;text-align:center;box-shadow:0 4px 20px rgba(79,70,229,.4);letter-spacing:-.01em;position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent)"></div>
+      <span style="position:relative">Sign In →</span>
+    </div>
+
+    <div style="margin-top:1.5rem;text-align:center;font-size:.65rem;color:rgba(255,255,255,.18)">
+      Veterinary Supply Management System · All rights reserved
+    </div>
+  </div>
+
+</div>
