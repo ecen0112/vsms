@@ -20,21 +20,12 @@ async function updateAlertBadge() {
         const res = await fetch('/api/alerts/count');
         const data = await res.json();
         const badge = document.getElementById('topbar-badge');
-        const navBadge = document.getElementById('alert-badge');
         if (badge) {
             if (data.total > 0) {
                 badge.textContent = data.total > 99 ? '99+' : data.total;
                 badge.style.display = 'flex';
             } else {
                 badge.style.display = 'none';
-            }
-        }
-        if (navBadge) {
-            if (data.total > 0) {
-                navBadge.textContent = data.total > 99 ? '99+' : data.total;
-                navBadge.style.display = 'inline-flex';
-            } else {
-                navBadge.style.display = 'none';
             }
         }
     } catch(e) {}
