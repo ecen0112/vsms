@@ -208,9 +208,11 @@
           </button>
         </div>
       </div>
-      <div id="camArea" style="display:none;margin-top:.65rem">
-        <div id="camReader" style="border-radius:11px;overflow:hidden"></div>
-        <p class="text-muted text-center small mt-1">Point camera at barcode — hold steady</p>
+      <div id="camArea" style="display:none;margin-top:.65rem;border-radius:11px;overflow:hidden;border:2px solid #e2e8f0;transition:outline .15s">
+        <div id="camReader"></div>
+        <p class="text-muted text-center small mt-1 mb-1" style="font-size:.75rem">
+          <i class="bi bi-upc-scan me-1 text-success"></i>Point camera at barcode — item adds to cart automatically
+        </p>
       </div>
       <div class="hot-bar">
         <div class="h-item"><span class="sc-key">F2</span> Scan</div>
@@ -1128,7 +1130,7 @@ async function lookupBarcode(code) {
   } catch { toast('Barcode lookup failed','d'); }
 }
 
-/* ── Camera scanner (html5-qrcode — same as mobile scanner) ── */
+/* ── Camera scanner (html5-qrcode) ── */
 let _posCamCooldown = false;
 
 async function toggleCam() {
@@ -1137,9 +1139,12 @@ async function toggleCam() {
   const btn  = document.getElementById('camBtn');
 
   if (!camOpen) {
-    // Start camera
     txt.textContent = '…';
     btn.disabled = true;
+
+    // ⚠️ MUST show the container BEFORE initializing Html5Qrcode
+    // — the library reads element dimensions on init; if hidden it gets 0×0 and fails silently
+    area.style.display = 'block';
 
     const formats = [
       Html5QrcodeSupportedFormats.CODE_128,
@@ -1153,48 +1158,67 @@ async function toggleCam() {
       Html5QrcodeSupportedFormats.QR_CODE,
     ];
 
-    camScanner = new Html5Qrcode('camReader', { formatsToSupport: formats, verbose: false });
+    try {
+      camScanner = new Html5Qrcode('camReader', { formatsToSupport: formats, verbose: false });
 
-    Html5Qrcode.getCameras().then(cameras => {
-      if (!cameras || !cameras.length) throw new Error('No camera found');
-      let camId = cameras[cameras.length - 1].id;
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || !cameras.length) throw new Error('No camera found on this device');
+
+      // On desktop: pick first camera. On mobile: prefer back/rear camera
+      let camId = cameras[0].id;
       const back = cameras.find(c => /back|rear|environment/i.test(c.label));
       if (back) camId = back.id;
 
-      return camScanner.start(
+      await camScanner.start(
         camId,
-        { fps: 15, qrbox: { width: 280, height: 100 }, aspectRatio: 2.0,
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
+        {
+          fps: 15,
+          qrbox: { width: 300, height: 100 },
+          aspectRatio: 1.7,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        },
         async (code) => {
           if (_posCamCooldown) return;
           _posCamCooldown = true;
+          // Flash the scan area green to confirm detection
+          area.style.outline = '3px solid #22c55e';
+          setTimeout(() => { area.style.outline = ''; }, 600);
           await lookupBarcode(code);
           setTimeout(() => { _posCamCooldown = false; }, 1800);
         },
-        () => {} // ignore per-frame no-result errors
+        () => {} // per-frame no-barcode errors — ignore
       );
-    }).then(() => {
-      area.style.display = 'block';
+
       camOpen = true;
       txt.textContent = 'Stop';
       btn.disabled = false;
-    }).catch(err => {
+
+    } catch(err) {
+      // Hide area again on failure
+      area.style.display = 'none';
       camScanner = null;
+      camOpen = false;
       txt.textContent = 'Camera';
       btn.disabled = false;
       const msg = String(err.message || err);
-      toast(msg.includes('Permission') ? 'Allow camera access first' : 'Camera: ' + msg, 'd');
-    });
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('allowed')) {
+        toast('Allow camera permission in your browser then try again', 'w');
+      } else if (msg.toLowerCase().includes('no camera')) {
+        toast('No camera found on this device', 'w');
+      } else {
+        toast('Camera error: ' + msg, 'd');
+      }
+    }
 
   } else {
-    // Stop camera
+    // Stop
     if (camScanner) {
-      camScanner.stop().catch(() => {}).finally(() => {
-        camScanner.clear().catch(() => {});
-        camScanner = null;
-      });
+      await camScanner.stop().catch(() => {});
+      camScanner.clear().catch(() => {});
+      camScanner = null;
     }
     area.style.display = 'none';
+    area.style.outline = '';
     txt.textContent = 'Camera';
     btn.disabled = false;
     camOpen = false;

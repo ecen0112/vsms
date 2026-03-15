@@ -5,342 +5,158 @@
 {% block head %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
-.sw { max-width: 460px; margin: 0 auto; }
-.sc { background:#fff; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:1rem; overflow:hidden; }
-.sch { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; font-weight:700; font-size:.92rem; }
-.scb { padding:.9rem; }
+.sw{max-width:460px;margin:0 auto}
 
 /* Session badge */
-.s-ok  { background:#f0fdf4; color:#15803d; border-radius:20px; padding:.3rem .85rem; font-size:.78rem; font-weight:700; display:inline-block; }
-.s-bad { background:#fef2f2; color:#dc2626; border-radius:20px; padding:.3rem .85rem; font-size:.78rem; font-weight:700; display:inline-block; }
+.ses-wrap{text-align:center;padding:.9rem;background:#fff;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:1rem}
+.s-ok{background:#f0fdf4;color:#15803d;border-radius:20px;padding:.3rem .9rem;font-size:.8rem;font-weight:700;display:inline-block}
+.s-bad{background:#fef2f2;color:#dc2626;border-radius:20px;padding:.3rem .9rem;font-size:.8rem;font-weight:700;display:inline-block}
 
-/* Method selector */
-.method-tabs { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1rem; }
-.mt { padding:.65rem .5rem; border:1.5px solid #e2e8f0; border-radius:12px; background:#fff; font-size:.82rem; font-weight:700; cursor:pointer; text-align:center; color:#64748b; transition:all .15s; }
-.mt.on { border-color:#1e3a5f; background:#eff6ff; color:#1e3a5f; }
-.mt i { display:block; font-size:1.3rem; margin-bottom:.2rem; }
+/* Camera card */
+.cam-card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:1rem;overflow:hidden}
+.cam-head{padding:.75rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between}
+.cam-head span{font-weight:700;font-size:.92rem}
+#camStatus{font-size:.75rem;color:#94a3b8}
 
-/* iPhone / photo capture panel */
-.capture-zone {
-  padding: 1.5rem 1rem;
-  text-align: center;
-}
-.capture-btn {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  width: 100%;
-  padding: 1.6rem 1rem;
-  background: linear-gradient(135deg, #0f172a, #1e3a5f);
-  color: #fff;
-  border: none;
-  border-radius: 14px;
-  font-size: 1rem;
-  font-weight: 800;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: transform .15s, box-shadow .15s;
-  box-shadow: 0 4px 18px rgba(15,23,42,.3);
-}
-.capture-btn:active { transform: scale(.98); }
-.capture-btn i { font-size: 2.2rem; }
-.capture-btn small { font-size: .75rem; font-weight: 400; opacity: .7; }
-#photoInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 100px; }
+/* The scanner div — html5-qrcode renders inside here */
+#reader{width:100%}
+#reader video{width:100%!important;border-radius:0}
+#reader img{display:none!important}
 
-.ios-steps {
-  margin-top: 1rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: .75rem .9rem;
-  text-align: left;
-  border: 1px solid #e2e8f0;
+/* Start/Stop button */
+#camToggleBtn{
+  width:100%;padding:.8rem;border:none;
+  background:linear-gradient(135deg,#1e3a5f,#2563eb);
+  color:#fff;font-size:.95rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:.5rem;
+  transition:background .15s;
 }
-.ios-steps ol {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: .78rem;
-  color: #475569;
-  line-height: 1.9;
-}
-.ios-steps strong { color: #1e3a5f; }
+#camToggleBtn.stop{background:#dc2626}
+#camToggleBtn:disabled{opacity:.6;cursor:not-allowed}
 
-/* Live camera panel (Android Chrome) */
-#camPanel { display: none; }
-#reader { width: 100%; }
-#reader video { width: 100% !important; }
-#reader img { display: none !important; }
-.cam-btn {
-  width: 100%;
-  padding: .72rem;
-  border: none;
-  background: #1e3a5f;
-  color: #fff;
-  font-size: .95rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-}
-.cam-btn.on { background: #dc2626; }
-
-/* Processing spinner */
-#procBg { display:none; position:fixed; inset:0; background:rgba(15,23,42,.75); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:1rem; color:#fff; font-weight:700; }
-#procBg.show { display:flex; }
+/* Manual input */
+.manual-card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:.9rem;margin-bottom:1rem}
+.manual-card label{display:block;font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.4rem}
 
 /* Result */
-.rc { border-radius:14px; border:1.5px solid #bfdbfe; padding:1rem; margin-bottom:1rem; display:none; background:#fff; }
-.rc.show { display:block; animation:pop .18s ease; }
-@keyframes pop { from{transform:scale(.96);opacity:0} to{transform:scale(1);opacity:1} }
+.result-card{background:#fff;border-radius:14px;border:1.5px solid #bfdbfe;padding:1rem;margin-bottom:1rem;display:none}
+.result-card.show{display:block;animation:pop .2s ease}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
 
 /* History */
-.hr { display:flex; align-items:center; gap:.6rem; padding:.45rem .6rem; border-radius:8px; border:1px solid #f1f5f9; margin-bottom:.35rem; font-size:.82rem; }
+.hist-card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:1rem}
+.hist-head{padding:.65rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:.88rem}
+.h-row{display:flex;align-items:center;gap:.6rem;padding:.45rem .7rem;border-bottom:1px solid #f8fafc;font-size:.82rem}
+.h-row:last-child{border-bottom:none}
 
 /* Toast */
-.tf { display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); color:#fff; border-radius:20px; padding:.55rem 1.4rem; font-size:.85rem; font-weight:700; z-index:9999; box-shadow:0 4px 18px rgba(0,0,0,.3); white-space:nowrap; }
+.toast-bar{display:none;position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  color:#fff;border-radius:20px;padding:.55rem 1.4rem;font-size:.85rem;font-weight:700;
+  z-index:9999;box-shadow:0 4px 18px rgba(0,0,0,.3);white-space:nowrap;pointer-events:none}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="sw">
 
-  <!-- Session status -->
-  <div class="sc scb" style="text-align:center">
-    <div style="font-size:1.4rem;margin-bottom:.3rem">📱</div>
-    <div style="font-weight:700;margin-bottom:.2rem">Mobile Scanner</div>
-    <div style="font-size:.8rem;color:#64748b;margin-bottom:.5rem">Scanned items go straight to the POS cart</div>
-    <div id="ses" class="s-bad">🔴 Checking…</div>
+  <!-- Session -->
+  <div class="ses-wrap">
+    <div style="font-size:1.3rem;margin-bottom:.25rem">📱</div>
+    <div style="font-weight:700;font-size:.95rem;margin-bottom:.2rem">Mobile Barcode Scanner</div>
+    <div style="font-size:.78rem;color:#64748b;margin-bottom:.5rem">Scanned items are sent to the POS cart</div>
+    <div id="sesEl" class="s-bad">🔴 Checking…</div>
   </div>
 
-  <!-- Method selector -->
-  <div class="method-tabs">
-    <button class="mt on" id="tabIos" onclick="switchTab('ios')">
-      <i class="bi bi-camera-fill"></i>
-      Take Photo
-      <span style="display:block;font-size:.65rem;font-weight:400;color:#94a3b8;margin-top:1px">iPhone &amp; Android</span>
-    </button>
-    <button class="mt" id="tabCam" onclick="switchTab('cam')">
-      <i class="bi bi-camera-video-fill"></i>
-      Live Camera
-      <span style="display:block;font-size:.65rem;font-weight:400;color:#94a3b8;margin-top:1px">Android Chrome only</span>
-    </button>
-  </div>
-
-  <!-- TAB 1: Photo capture — works on EVERY phone including iPhone -->
-  <div id="iosPanel">
-    <div class="sc">
-      <div class="sch">
-        <span>📷 Scan Barcode via Camera</span>
-      </div>
-      <div class="capture-zone">
-        <button class="capture-btn">
-          <i class="bi bi-upc-scan"></i>
-          Tap to Scan Barcode
-          <small>Opens your phone camera — point at barcode</small>
-          <!-- The actual file input overlaid on the button -->
-          <input type="file"
-            id="photoInput"
-            accept="image/*"
-            capture="environment"
-            onchange="onPhoto(this)">
-        </button>
-
-        <div class="ios-steps">
-          <ol>
-            <li><strong>Tap the button above</strong> — your camera opens</li>
-            <li>Point camera at the <strong>barcode on the product</strong></li>
-            <li>Take the photo — item is <strong>added to POS cart automatically</strong></li>
-          </ol>
-        </div>
-      </div>
+  <!-- Camera scanner -->
+  <div class="cam-card">
+    <div class="cam-head">
+      <span><i class="bi bi-camera-video me-2 text-success"></i>Camera Scanner</span>
+      <span id="camStatus">Ready</span>
     </div>
+    <!-- html5-qrcode renders the video feed inside this div -->
+    <div id="reader"></div>
+    <button id="camToggleBtn" onclick="toggleCamera()">
+      <i class="bi bi-camera-video me-1"></i> Start Camera
+    </button>
   </div>
 
-  <!-- TAB 2: Live camera — Android Chrome -->
-  <div id="camPanel">
-    <div class="sc">
-      <div class="sch">
-        <span>📹 Live Camera Scanner</span>
-        <span id="camEng" style="font-size:.72rem;color:#94a3b8"></span>
-      </div>
-      <div id="reader"></div>
-      <button class="cam-btn" id="camBtn" onclick="toggleCam()">
-        <i class="bi bi-camera-video"></i> Start Camera
-      </button>
-    </div>
-  </div>
-
-  <!-- Manual input always visible -->
-  <div class="sc scb">
-    <div style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:.5rem">⌨️ Type Barcode Manually</div>
+  <!-- Manual input -->
+  <div class="manual-card">
+    <label><i class="bi bi-keyboard me-1"></i> Type Barcode Manually</label>
     <div style="display:flex;gap:.5rem">
-      <input type="text" id="mi" class="form-control"
-        style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem"
+      <input type="text" id="manualIn" class="form-control"
+        style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.9rem"
         placeholder="e.g. 8901234560005"
         autocomplete="off" inputmode="numeric">
-      <button class="btn-vsms" onclick="doManual()" style="flex-shrink:0">Search</button>
+      <button class="btn-vsms" onclick="submitManual()" style="flex-shrink:0;padding:.5rem 1rem">
+        <i class="bi bi-search"></i>
+      </button>
     </div>
   </div>
 
-  <!-- Result card -->
-  <div class="rc" id="rc">
+  <!-- Last result -->
+  <div class="result-card" id="resultCard">
     <div class="d-flex align-items-center gap-3">
-      <div style="width:44px;height:44px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📦</div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:.9rem" id="rn">—</div>
-        <div style="font-size:.78rem;color:#64748b" id="rk">—</div>
+      <div style="width:46px;height:46px;background:#eff6ff;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">📦</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="resName">—</div>
+        <div style="font-size:.78rem;color:#64748b" id="resCat">—</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-weight:800;color:#059669" id="rp">—</div>
-        <div style="font-size:.72rem;color:#94a3b8" id="rs">—</div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-weight:800;color:#059669;font-size:1rem" id="resPrice">—</div>
+        <div style="font-size:.72rem;color:#94a3b8" id="resStock">—</div>
       </div>
     </div>
-    <div style="margin-top:.7rem;display:flex;gap:.5rem">
-      <button class="btn-vsms" style="flex:1" id="sb" onclick="sendLast()">
-        <i class="bi bi-cart-plus me-1"></i>Send to POS Cart
+    <div style="margin-top:.75rem;display:flex;gap:.5rem">
+      <button class="btn-vsms" style="flex:1" id="sendBtn" onclick="sendLastToCart()">
+        <i class="bi bi-cart-plus me-1"></i>Add to POS Cart
       </button>
-      <button class="btn-vsms-outline" onclick="clearRes()"><i class="bi bi-x-lg"></i></button>
+      <button class="btn-vsms-outline" onclick="clearResult()">
+        <i class="bi bi-x-lg"></i>
+      </button>
     </div>
   </div>
 
   <!-- History -->
-  <div class="sc">
-    <div class="sch">
-      Scan History <span class="badge bg-success ms-1" id="hb">0</span>
-      <button class="btn-vsms-sm" onclick="clearHist()">Clear</button>
+  <div class="hist-card">
+    <div class="hist-head">
+      <span>Scan History <span class="badge bg-success ms-1" id="histCount">0</span></span>
+      <button class="btn-vsms-sm" onclick="clearHistory()">Clear</button>
     </div>
-    <div id="hl" style="padding:.6rem;max-height:260px;overflow-y:auto">
+    <div id="histBody" style="max-height:280px;overflow-y:auto">
       <div class="text-muted text-center small py-3">No scans yet</div>
     </div>
   </div>
 
 </div>
 
-<!-- Processing overlay -->
-<div id="procBg">
-  <div class="spinner-border" style="width:2.5rem;height:2.5rem;color:#22c55e"></div>
-  <div id="procMsg">Reading barcode…</div>
-</div>
-
-<div class="tf" id="tf"></div>
+<div class="toast-bar" id="toastBar"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 'use strict';
 
-/* ── State ── */
+let scannerObj  = null;
+let scanActive  = false;
+let cooldown    = false;
 let lastProduct = null;
-let histArr = [];
-let camRunning = false;
-let camScanner = null;
-let camCooldown = false;
+let history     = [];
 
-/* ── Tab switching ── */
-function switchTab(tab) {
-  document.getElementById('iosPanel').style.display = tab === 'ios' ? '' : 'none';
-  document.getElementById('camPanel').style.display = tab === 'cam' ? '' : 'none';
-  document.getElementById('tabIos').className = 'mt' + (tab === 'ios' ? ' on' : '');
-  document.getElementById('tabCam').className = 'mt' + (tab === 'cam' ? ' on' : '');
-  if (tab !== 'cam') stopCam();
+/* ═══════════════════════════════════════════════
+   CAMERA
+═══════════════════════════════════════════════ */
+function toggleCamera() {
+  scanActive ? stopCamera() : startCamera();
 }
 
-/* ════════════════════════════════════════════════════════
-   PHOTO CAPTURE — works on iPhone Safari, Android, desktop
-   Uses <input capture="environment"> which opens the
-   native camera app — the most reliable approach on iOS
-   ════════════════════════════════════════════════════════ */
-async function onPhoto(input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = ''; // reset so same barcode can be re-scanned
+function startCamera() {
+  const btn = document.getElementById('camToggleBtn');
+  const status = document.getElementById('camStatus');
 
-  showProc('Reading barcode…');
-
-  // Strategy 1: native BarcodeDetector (Android Chrome, Edge)
-  if (typeof BarcodeDetector !== 'undefined') {
-    try {
-      const det = new BarcodeDetector({
-        formats: ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','qr_code','itf']
-      });
-      const img = await createImageBitmap(file);
-      const results = await det.detect(img);
-      if (results.length > 0) {
-        hideProc();
-        await doScan(results[0].rawValue);
-        return;
-      }
-    } catch(e) {}
-  }
-
-  // Strategy 2: html5-qrcode file scan (works on iPhone Safari too)
-  try {
-    const tempDiv = document.createElement('div');
-    tempDiv.id = 'tempReader_' + Date.now();
-    tempDiv.style.display = 'none';
-    document.body.appendChild(tempDiv);
-
-    const reader = new Html5Qrcode(tempDiv.id, { verbose: false });
-    try {
-      const result = await reader.scanFile(file, false);
-      await reader.clear();
-      tempDiv.remove();
-      hideProc();
-      await doScan(result);
-      return;
-    } catch(e) {
-      await reader.clear().catch(() => {});
-      tempDiv.remove();
-    }
-  } catch(e) {}
-
-  // Strategy 3: canvas + BarcodeDetector on drawn image (iOS 17+ Safari)
-  try {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-      img.src = url;
-    });
-    if (typeof BarcodeDetector !== 'undefined') {
-      const det = new BarcodeDetector({
-        formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code']
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      const results = await det.detect(canvas);
-      URL.revokeObjectURL(url);
-      if (results.length > 0) {
-        hideProc();
-        await doScan(results[0].rawValue);
-        return;
-      }
-    }
-    URL.revokeObjectURL(url);
-  } catch(e) {}
-
-  hideProc();
-  showToast('❌ No barcode found — try better lighting or type manually', '#dc2626');
-}
-
-/* ════════════════════════════════════════════════════════
-   LIVE CAMERA — Android Chrome (html5-qrcode)
-   ════════════════════════════════════════════════════════ */
-function toggleCam() {
-  camRunning ? stopCam() : startCam();
-}
-
-function startCam() {
-  const btn = document.getElementById('camBtn');
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Starting…';
   btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting…';
 
   const formats = [
     Html5QrcodeSupportedFormats.CODE_128,
@@ -354,174 +170,229 @@ function startCam() {
     Html5QrcodeSupportedFormats.QR_CODE,
   ];
 
-  camScanner = new Html5Qrcode('reader', { formatsToSupport: formats, verbose: false });
-
-  Html5Qrcode.getCameras().then(cameras => {
-    if (!cameras || !cameras.length) throw new Error('No camera found');
-    let camId = cameras[cameras.length - 1].id;
-    const back = cameras.find(c => /back|rear|environment/i.test(c.label));
-    if (back) camId = back.id;
-
-    return camScanner.start(
-      camId,
-      { fps: 15, qrbox: { width: 280, height: 100 }, aspectRatio: 2.0,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true } },
-      async (code) => {
-        if (camCooldown) return;
-        camCooldown = true;
-        await doScan(code);
-        setTimeout(() => { camCooldown = false; }, 2500);
-      },
-      () => {} // ignore per-frame errors
-    );
-  }).then(() => {
-    camRunning = true;
-    btn.className = 'cam-btn on';
-    btn.innerHTML = '<i class="bi bi-stop-circle"></i> Stop Camera';
-    btn.disabled = false;
-    document.getElementById('camEng').textContent = '⚡ Scanning…';
-  }).catch(err => {
-    camRunning = false;
-    btn.className = 'cam-btn';
-    btn.innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
-    btn.disabled = false;
-    const msg = String(err.message || err);
-    showToast('❌ ' + (msg.includes('Permission') ? 'Allow camera access first' : msg), '#dc2626');
+  scannerObj = new Html5Qrcode('reader', {
+    formatsToSupport: formats,
+    verbose: false
   });
-}
 
-function stopCam() {
-  if (camScanner) {
-    camScanner.stop().catch(() => {}).finally(() => {
-      camScanner.clear().catch(() => {});
-      camScanner = null;
+  Html5Qrcode.getCameras()
+    .then(cameras => {
+      if (!cameras || cameras.length === 0) {
+        throw new Error('No camera found on this device');
+      }
+
+      // Prefer back/rear camera on mobile
+      let cameraId = cameras[cameras.length - 1].id;
+      const rearCam = cameras.find(c =>
+        /back|rear|environment/i.test(c.label)
+      );
+      if (rearCam) cameraId = rearCam.id;
+
+      return scannerObj.start(
+        cameraId,
+        {
+          fps: 15,
+          qrbox: { width: 260, height: 100 },
+          aspectRatio: 1.8,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        },
+        // ✅ Success — barcode decoded
+        async (decodedText) => {
+          if (cooldown) return;
+          cooldown = true;
+          status.textContent = '✅ Detected!';
+          await handleScan(decodedText);
+          setTimeout(() => {
+            cooldown = false;
+            if (scanActive) status.textContent = 'Scanning…';
+          }, 2500);
+        },
+        // ❌ Per-frame failure — IGNORE, fires constantly when no barcode in view
+        (_error) => {}
+      );
+    })
+    .then(() => {
+      scanActive = true;
+      btn.disabled = false;
+      btn.className = 'stop';
+      btn.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Camera';
+      status.textContent = 'Scanning…';
+      status.style.color = '#22c55e';
+    })
+    .catch(err => {
+      scannerObj = null;
+      btn.disabled = false;
+      btn.className = '';
+      btn.innerHTML = '<i class="bi bi-camera-video me-1"></i> Start Camera';
+      status.textContent = 'Error';
+      status.style.color = '#dc2626';
+
+      const msg = String(err.message || err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('allowed')) {
+        showToast('❌ Camera permission denied — allow it in browser settings', '#dc2626');
+      } else if (msg.toLowerCase().includes('no camera')) {
+        showToast('❌ No camera found on this device', '#dc2626');
+      } else {
+        showToast('❌ Camera error: ' + msg, '#dc2626');
+      }
     });
-  }
-  camRunning = false;
-  camCooldown = false;
-  const btn = document.getElementById('camBtn');
-  if (btn) {
-    btn.className = 'cam-btn';
-    btn.innerHTML = '<i class="bi bi-camera-video"></i> Start Camera';
-  }
-  document.getElementById('camEng').textContent = '';
 }
 
-/* ── Manual input ── */
-function doManual() {
-  const el = document.getElementById('mi');
-  const v = el.value.trim();
-  if (!v) return;
-  el.value = '';
-  doScan(v);
+function stopCamera() {
+  if (scannerObj) {
+    scannerObj.stop()
+      .catch(() => {})
+      .finally(() => {
+        if (scannerObj) { scannerObj.clear().catch(() => {}); }
+        scannerObj = null;
+      });
+  }
+  scanActive = false;
+  cooldown   = false;
+
+  const btn = document.getElementById('camToggleBtn');
+  btn.disabled = false;
+  btn.className = '';
+  btn.innerHTML = '<i class="bi bi-camera-video me-1"></i> Start Camera';
+
+  const status = document.getElementById('camStatus');
+  status.textContent = 'Ready';
+  status.style.color = '#94a3b8';
+}
+
+/* ═══════════════════════════════════════════════
+   MANUAL INPUT
+═══════════════════════════════════════════════ */
+function submitManual() {
+  const inp = document.getElementById('manualIn');
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  handleScan(val);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('mi').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); doManual(); }
+  document.getElementById('manualIn').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submitManual(); }
   });
 });
 
-/* ── Scan handler ── */
-async function doScan(code) {
+/* ═══════════════════════════════════════════════
+   SCAN → LOOKUP → PUSH
+═══════════════════════════════════════════════ */
+async function handleScan(code) {
   code = (code || '').trim();
   if (!code) return;
-  showProc('Looking up product…');
+
   try {
-    const res = await fetch('/api/products/barcode/' + encodeURIComponent(code));
+    const res  = await fetch('/api/products/barcode/' + encodeURIComponent(code));
     const data = await res.json();
-    hideProc();
+
     if (data.product) {
       lastProduct = data.product;
       showResult(data.product);
-      addHist(code, data.product, true);
+      addToHistory(code, data.product, true);
       await pushToCart(data.product);
     } else {
       lastProduct = null;
       showNotFound(code);
-      addHist(code, null, false);
+      addToHistory(code, null, false);
     }
-  } catch(e) {
-    hideProc();
-    showToast('❌ Network error', '#dc2626');
+  } catch (e) {
+    showToast('❌ Network error — check connection', '#dc2626');
   }
 }
 
-/* ── Display ── */
 function showResult(p) {
-  document.getElementById('rn').textContent = p.product_name;
-  document.getElementById('rk').textContent = p.category + (p.brand ? ' · ' + p.brand : '');
-  document.getElementById('rp').textContent = '₱' + parseFloat(p.price).toFixed(2);
-  document.getElementById('rs').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
-  document.getElementById('sb').disabled = p.stock <= 0;
-  const c = document.getElementById('rc');
-  c.className = 'rc show';
-  c.style.borderColor = p.stock > 0 ? '#bfdbfe' : '#ffcdd2';
+  document.getElementById('resName').textContent  = p.product_name;
+  document.getElementById('resCat').textContent   = p.category + (p.brand ? ' · ' + p.brand : '');
+  document.getElementById('resPrice').textContent = '₱' + parseFloat(p.price).toFixed(2);
+  document.getElementById('resStock').textContent = 'Stock: ' + p.stock + ' ' + p.unit;
+  document.getElementById('sendBtn').disabled     = p.stock <= 0;
+  const card = document.getElementById('resultCard');
+  card.className = 'result-card show';
+  card.style.borderColor = p.stock > 0 ? '#bfdbfe' : '#ffcdd2';
 }
 
 function showNotFound(code) {
-  document.getElementById('rn').textContent = 'Product not found';
-  document.getElementById('rk').textContent = 'Barcode: ' + code;
-  document.getElementById('rp').textContent = '—';
-  document.getElementById('rs').textContent = '';
-  document.getElementById('sb').disabled = true;
-  const c = document.getElementById('rc');
-  c.className = 'rc show';
-  c.style.borderColor = '#ffcdd2';
+  document.getElementById('resName').textContent  = 'Product not found';
+  document.getElementById('resCat').textContent   = 'Barcode: ' + code;
+  document.getElementById('resPrice').textContent = '—';
+  document.getElementById('resStock').textContent = '';
+  document.getElementById('sendBtn').disabled     = true;
+  const card = document.getElementById('resultCard');
+  card.className = 'result-card show';
+  card.style.borderColor = '#ffcdd2';
 }
 
-function clearRes() { document.getElementById('rc').className = 'rc'; lastProduct = null; }
-function sendLast() { if (lastProduct) pushToCart(lastProduct); }
+function clearResult() {
+  document.getElementById('resultCard').className = 'result-card';
+  lastProduct = null;
+}
 
-/* ── Push to POS ── */
+function sendLastToCart() {
+  if (lastProduct) pushToCart(lastProduct);
+}
+
+/* ═══════════════════════════════════════════════
+   PUSH TO POS CART
+═══════════════════════════════════════════════ */
 async function pushToCart(prod) {
   try {
     const r = await fetch('/api/scan-session/push', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product: prod })
+      body:    JSON.stringify({ product: prod })
     });
     const d = await r.json();
     if (d.success) {
-      showToast('✅ ' + prod.product_name + ' → POS cart', '#059669');
-      setSes(true);
+      showToast('✅ ' + prod.product_name + ' added to POS cart', '#059669');
+      setSession(true);
     } else {
-      showToast('⚠️ ' + (d.message || 'Not sent'), '#d97706');
+      showToast('⚠️ ' + (d.message || 'Could not add to cart'), '#d97706');
     }
-  } catch { showToast('❌ Server unreachable', '#dc2626'); }
+  } catch {
+    showToast('❌ Server unreachable', '#dc2626');
+  }
 }
 
-/* ── Session ── */
-function setSes(ok) {
-  const el = document.getElementById('ses');
-  el.className = ok ? 's-ok' : 's-bad';
-  el.textContent = ok ? '🟢 POS session ready' : '🔴 Open POS page first';
+/* ═══════════════════════════════════════════════
+   SESSION STATUS
+═══════════════════════════════════════════════ */
+function setSession(ok) {
+  const el = document.getElementById('sesEl');
+  el.className  = ok ? 's-ok' : 's-bad';
+  el.textContent = ok ? '🟢 POS session active' : '🔴 Open the POS page first';
 }
 
-async function checkSes() {
+async function checkSession() {
   try {
     const r = await fetch('/api/scan-session/info');
     const d = await r.json();
-    setSes(!!d.session_id);
-  } catch { document.getElementById('ses').textContent = '🔴 Server unreachable'; }
+    setSession(!!d.session_id);
+  } catch {
+    document.getElementById('sesEl').textContent = '🔴 Server unreachable';
+  }
 }
 
-/* ── History ── */
-function addHist(code, product, found) {
-  histArr.unshift({ code, product, found, time: new Date().toLocaleTimeString('en-PH') });
-  renderHist();
+/* ═══════════════════════════════════════════════
+   SCAN HISTORY
+═══════════════════════════════════════════════ */
+function addToHistory(code, product, found) {
+  history.unshift({ code, product, found, time: new Date().toLocaleTimeString('en-PH') });
+  renderHistory();
 }
 
-function renderHist() {
-  document.getElementById('hb').textContent = histArr.length;
-  const el = document.getElementById('hl');
-  if (!histArr.length) {
+function renderHistory() {
+  document.getElementById('histCount').textContent = history.length;
+  const el = document.getElementById('histBody');
+  if (!history.length) {
     el.innerHTML = '<div class="text-muted text-center small py-3">No scans yet</div>';
     return;
   }
-  el.innerHTML = histArr.map(s => `
-    <div class="hr">
-      <span>${s.found ? '✅' : '❌'}</span>
+  el.innerHTML = history.map(s => `
+    <div class="h-row">
+      <span style="font-size:1rem">${s.found ? '✅' : '❌'}</span>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
           ${s.product ? s.product.product_name : 'Not found: ' + s.code}
@@ -532,32 +403,34 @@ function renderHist() {
       </div>
       ${s.product && s.product.stock > 0
         ? `<button class="btn-vsms btn-vsms-sm" onclick='pushToCart(${JSON.stringify(s.product)})'>
-            <i class="bi bi-cart-plus"></i></button>`
+             <i class="bi bi-cart-plus"></i>
+           </button>`
         : ''}
-    </div>`).join('');
+    </div>
+  `).join('');
 }
 
-function clearHist() { histArr = []; renderHist(); }
-
-/* ── Processing overlay ── */
-function showProc(msg) {
-  document.getElementById('procMsg').textContent = msg;
-  document.getElementById('procBg').className = 'show';
+function clearHistory() {
+  history = [];
+  renderHistory();
 }
-function hideProc() { document.getElementById('procBg').className = ''; }
 
-/* ── Toast ── */
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
 function showToast(msg, bg) {
-  const el = document.getElementById('tf');
+  const el = document.getElementById('toastBar');
   el.textContent = msg;
   el.style.background = bg || '#0f172a';
   el.style.display = 'block';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.style.display = 'none', 3000);
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
-/* ── Init ── */
-checkSes();
-setInterval(checkSes, 30000);
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+checkSession();
+setInterval(checkSession, 30000);
 </script>
 {% endblock %}
