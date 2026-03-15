@@ -204,15 +204,21 @@
             <div class="table-responsive">
                 <table class="vsms-table">
                     <thead>
-                        <tr><th>Product</th><th>Batch Number</th><th>Expired On</th><th>Remaining Qty</th></tr>
+                        <tr><th>Product</th><th>Batch Number</th><th>Expired On</th><th>Remaining Qty</th><th>Action</th></tr>
                     </thead>
                     <tbody>
                         {% for b in expired_batches %}
-                        <tr class="expired-row">
+                        <tr class="expired-row" id="batch-row-{{ b.batch_id }}">
                             <td><strong>{{ b.product_name }}</strong></td>
                             <td><code>{{ b.batch_number }}</code></td>
                             <td class="text-danger fw-600">{{ b.expiration_date }}</td>
                             <td><span class="stock-badge stock-zero">{{ b.remaining_quantity }} {{ b.unit }}</span></td>
+                            <td>
+                                <button class="btn-vsms btn-danger-soft btn-vsms-sm"
+                                    onclick="openRemoveExpired({{ b.batch_id }}, '{{ b.product_name|e }}', {{ b.remaining_quantity }}, '{{ b.unit }}', {{ b.product_id }})">
+                                    <i class="bi bi-trash3 me-1"></i>Remove Expired
+                                </button>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -369,12 +375,142 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Remove Expired Stock Modal -->
+<div class="modal fade" id="removeExpiredModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content vsms-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-700">
+                    <i class="bi bi-trash3 me-2 text-danger"></i>Remove Expired Stock
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert-banner danger-banner mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    This will permanently deduct expired stock from inventory.
+                </div>
+                <p class="fw-700 mb-1" id="removeExpiredProductName"></p>
+                <p class="text-muted small mb-3" id="removeExpiredBatchInfo"></p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-700 small">Quantity to Remove</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="number" id="removeExpiredQty" class="form-control"
+                            style="border:1.5px solid #e2e8f0;border-radius:9px;max-width:140px"
+                            min="1" value="1">
+                        <span class="text-muted small" id="removeExpiredUnit"></span>
+                        <button class="btn-vsms-sm" onclick="setRemoveAll()" style="white-space:nowrap">
+                            Remove All
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        Available: <strong id="removeExpiredMax"></strong>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label fw-700 small">Reason</label>
+                    <select id="removeExpiredReason" class="form-select"
+                        style="border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem">
+                        <option value="expired">Expired</option>
+                        <option value="spoiled">Spoiled / Damaged</option>
+                        <option value="disposed">Disposed / Discarded</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-vsms-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn-vsms btn-danger-soft" id="confirmRemoveBtn" onclick="confirmRemoveExpired()">
+                    <i class="bi bi-trash3 me-1"></i>Remove Stock
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 function openStockInModal() { new bootstrap.Modal(document.getElementById('stockInModal')).show(); }
 function openAdjustModal() { new bootstrap.Modal(document.getElementById('adjustModal')).show(); }
+
+/* ── Remove Expired Stock ── */
+let _removeExpiredData = {};
+
+function openRemoveExpired(batchId, productName, qty, unit, productId) {
+    _removeExpiredData = { batchId, productName, qty, unit, productId };
+    document.getElementById('removeExpiredProductName').textContent = productName;
+    document.getElementById('removeExpiredBatchInfo').textContent = `Batch has ${qty} ${unit} remaining`;
+    document.getElementById('removeExpiredMax').textContent = `${qty} ${unit}`;
+    document.getElementById('removeExpiredUnit').textContent = unit;
+    document.getElementById('removeExpiredQty').value = qty;
+    document.getElementById('removeExpiredQty').max = qty;
+    new bootstrap.Modal(document.getElementById('removeExpiredModal')).show();
+}
+
+function setRemoveAll() {
+    document.getElementById('removeExpiredQty').value = _removeExpiredData.qty;
+}
+
+async function confirmRemoveExpired() {
+    const qty    = parseInt(document.getElementById('removeExpiredQty').value) || 0;
+    const reason = document.getElementById('removeExpiredReason').value;
+    const btn    = document.getElementById('confirmRemoveBtn');
+
+    if (qty < 1 || qty > _removeExpiredData.qty) {
+        alert(`Enter a quantity between 1 and ${_removeExpiredData.qty}`);
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Removing…';
+
+    try {
+        const res = await fetch('/inventory/remove-expired', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                batch_id:   _removeExpiredData.batchId,
+                product_id: _removeExpiredData.productId,
+                quantity:   qty,
+                reason:     reason
+            })
+        });
+        const d = await res.json();
+        if (d.success) {
+            bootstrap.Modal.getInstance(document.getElementById('removeExpiredModal'))?.hide();
+            // Remove row from table if all stock removed, otherwise update qty
+            const row = document.getElementById(`batch-row-${_removeExpiredData.batchId}`);
+            if (row) {
+                if (d.remaining === 0) {
+                    row.style.transition = 'opacity .3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                } else {
+                    row.querySelector('.stock-badge').textContent = `${d.remaining} ${_removeExpiredData.unit}`;
+                }
+            }
+            // Show success toast
+            const t = document.createElement('div');
+            t.className = 'pos-toast show ts';
+            t.style.cssText = 'position:fixed;bottom:1.4rem;right:1.4rem;z-index:9999';
+            t.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${qty} ${_removeExpiredData.unit} removed from ${_removeExpiredData.productName}`;
+            document.body.appendChild(t);
+            setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3000);
+        } else {
+            alert('Error: ' + (d.message || 'Failed to remove stock'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Remove Stock';
+        }
+    } catch(e) {
+        alert('Network error. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Remove Stock';
+    }
+}
 
 function prefillStockIn(pid, name) {
     document.getElementById('stockin-product').value = pid;

@@ -179,3 +179,72 @@ def add_batch():
     conn.close()
     flash('Batch added successfully!', 'success')
     return redirect(url_for('inventory.index'))
+
+@inventory_bp.route('/inventory/remove-expired', methods=['POST'])
+@login_required
+@role_required('admin', 'inventory_manager')
+def remove_expired():
+    """Remove expired/spoiled stock from a batch and deduct from product stock."""
+    data       = request.get_json() or {}
+    batch_id   = int(data.get('batch_id', 0))
+    product_id = int(data.get('product_id', 0))
+    qty        = int(data.get('quantity', 0))
+    reason     = data.get('reason', 'expired')
+
+    if qty < 1 or not batch_id or not product_id:
+        return jsonify({'success': False, 'message': 'Invalid input'}), 400
+
+    conn = get_db()
+    try:
+        batch   = conn.execute("SELECT * FROM product_batches WHERE batch_id=?", (batch_id,)).fetchone()
+        product = conn.execute("SELECT * FROM products WHERE product_id=?", (product_id,)).fetchone()
+
+        if not batch or not product:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Batch or product not found'}), 404
+
+        actual_qty = min(qty, batch['remaining_quantity'])  # never remove more than available
+
+        old_stock   = product['stock']
+        new_stock   = max(0, old_stock - actual_qty)
+        new_batch_q = max(0, batch['remaining_quantity'] - actual_qty)
+
+        # Update batch remaining quantity
+        conn.execute(
+            "UPDATE product_batches SET remaining_quantity=? WHERE batch_id=?",
+            (new_batch_q, batch_id)
+        )
+
+        # Update product stock
+        conn.execute(
+            "UPDATE products SET stock=?, updated_at=CURRENT_TIMESTAMP WHERE product_id=?",
+            (new_stock, product_id)
+        )
+
+        # Log the removal
+        action_label = reason if reason in ('expired', 'spoiled', 'disposed') else 'adjustment'
+        conn.execute("""
+            INSERT INTO inventory_logs
+              (product_id, user_id, action, quantity_change, quantity_before, quantity_after, notes)
+            VALUES (?,?,'adjustment',?,?,?,?)
+        """, (product_id, session['user_id'], -actual_qty, old_stock, new_stock,
+              f"{reason.title()} stock removal — batch {batch['batch_number']}"))
+
+        # Log to product_movements
+        conn.execute("""
+            INSERT INTO product_movements
+              (product_id, user_id, move_type, quantity, quantity_before, quantity_after,
+               reference_type, batch_id, notes)
+            VALUES (?,?,'expired_removal',?,?,?,'inventory',?,?)
+        """, (product_id, session['user_id'], -actual_qty, old_stock, new_stock,
+              batch_id, f"{reason.title()} — removed {actual_qty} units"))
+
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'remaining': new_batch_q, 'new_stock': new_stock})
+
+    except Exception as e:
+        try: conn.rollback()
+        except: pass
+        conn.close()
+        return jsonify({'success': False, 'message': str(e)}), 500
